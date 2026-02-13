@@ -1,0 +1,20 @@
+
+font.family: Times New Roman
+font.size: 8.0
+
+axes.titlesize: 8.0
+axes.labelsize: 8.0
+axes.labelpad: 1.0       # padding for axes labels
+axes.linewidth: 1.0
+
+xtick.labelsize: 6.0
+ytick.labelsize: 6.0
+xtick.major.size: 2.0     # Length of major x-ticks
+xtick.major.width: 1.0  # Width of major x-ticks
+ytick.major.size: 2.0     # Length of major y-ticks
+ytick.major.width: 1.0  # Width of major y-ticks
+xtick.major.pad: 1.0    # padding for major x-tick labels
+ytick.major.pad: 0.7    # padding for major y-tick labels
+
+legend.fontsize: 5.0
+lines.linewidth: 1.5 # 1.75

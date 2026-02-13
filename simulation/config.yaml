@@ -1,0 +1,39 @@
+FPS: 10
+SECONDS: 720
+
+SPATIAL_RES: 0.04
+
+ENV_DIM: 0.635 # meters
+ENV_EPS: 0.005 # meters
+
+FRAME_DIM:
+    - 128 # X
+    - 64  # Y
+
+BEHAVIOURS:
+    
+    crawl:
+        SPEED_MEAN: 0.03794
+        SPEED_CT: 2.0
+        ROT_SPEED_STD: 0.25
+        ROT_SPEED_CT: 0.075
+        THIGMOTAXIS: 0.6
+    walk:
+        SPEED_MEAN: 0.09087
+        SPEED_CT: 1.35
+        ROT_SPEED_STD: 0.667
+        ROT_SPEED_CT: 0.075
+        THIGMOTAXIS: 0.6
+    run:
+        SPEED_MEAN: 0.07081
+        SPEED_CT: 1.35
+        ROT_SPEED_STD: 0.667
+        ROT_SPEED_CT: 0.075
+        THIGMOTAXIS: 0.6
+    adult:
+        SPEED_MEAN: 0.08021
+        SPEED_CT: 1.35
+        ROT_SPEED_STD: 0.8334
+        ROT_SPEED_CT: 0.075
+        THIGMOTAXIS: 0.4
+    

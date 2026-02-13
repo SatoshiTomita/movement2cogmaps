@@ -1,0 +1,34 @@
+POS_BINS: 25
+POS_SIGMA_SMOOTHING: 1.5
+
+SPEED_BINS: 50
+SPEED_RANGE: 
+  - 0
+  - 0.15
+
+RS_BINS: 50
+
+FPS: 50
+SECONDS: 650
+
+SMOOTH_THETA: 1. # seconds
+
+FILTER_LOW_SPEED: False
+LOW_SPEED_TH: 0.02
+
+DURATION_RANGE:
+  - 300
+  - 900
+
+MAX_SAMPLES_PER_AGE: 60
+
+BOX_DIM: 0.635 # meters
+BOX_EPS: 0.005 # meters
+
+# Transition Matrix parameters
+# box 0.625x0.625
+ATOL: !!float 1e-5
+THRESHOLD_SEC: 7 # number of seconds in a window
+B: 10 # number of bins (per dimension)
+DF: 0.5 # discount factor (basis for the exponential decay)
+SIGMA_SMOOTHING: 1. # sigma used for gaussian smoothing
