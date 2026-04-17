@@ -1,11 +1,15 @@
 import platform
+import os
 if 'mac' in platform.platform():
     BASE_DIR = "/Users/USER/vrtopc/"
     DATA_DIR = "/media/data/vrtopc"
 else:
     BASE_DIR = "/home/USER/vr_to_pc/"
     DATA_DIR = "/media/data/vrtopc"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# データ保存先を、BASE_DIRの中にある "data" フォルダに設定
+DATA_DIR = os.path.join(BASE_DIR, "data")
 import sys
 sys.path.append(BASE_DIR)
 
@@ -13,7 +17,6 @@ import argparse
 import yaml
 import numpy as np
 import torch
-import os
 import matplotlib.pyplot as plt
 import random
 import time

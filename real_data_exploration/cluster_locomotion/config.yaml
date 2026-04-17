@@ -32,3 +32,4 @@ THRESHOLD_SEC: 7 # number of seconds in a window
 B: 10 # number of bins (per dimension)
 DF: 0.5 # discount factor (basis for the exponential decay)
 SIGMA_SMOOTHING: 1. # sigma used for gaussian smoothing
+B_HD: 10 # number of bins (per dimension) for half-day

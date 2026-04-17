@@ -20,4 +20,4 @@ dependencies:
       - seaborn
       - nose
       - umap-learn
-      - git+ssh://git@github.com/RatInABox-Lab/RatInABox.git@d8b85d59620ee346f94cbc25d471dc9e34405228
+      - git+https://github.com/RatInABox-Lab/RatInABox.git@d8b85d59620ee346f94cbc25d471dc9e34405228
