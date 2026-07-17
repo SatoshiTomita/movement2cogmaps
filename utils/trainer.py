@@ -24,6 +24,13 @@ class RNNTrainer():
         # convert args to dict if it is a Namespace
         args = vars(args) if not isinstance(args, dict) else args
 
+        # GRU models use a compact name: GRU_{behaviour} (optionally prefixed)
+        if args.get('architecture', 'rnn') == 'gru':
+            model_name = 'GRU'
+            if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
+            model_name += f'_{args["behaviour"]}'
+            return model_name
+
         model_name = f'RNN'
         if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
         if args['pretrained_model_folder'] : model_name += '_ft'
@@ -409,7 +416,19 @@ class RNNTrainer():
             rnn_loaded = self.load_model_pretrained()
 
         # define RNN architecture
-        if self.args.n_gridcells > 0:
+        if getattr(self.args, 'architecture', 'rnn') == 'gru':
+            if self.args.n_gridcells > 0:
+                raise NotImplementedError("GRU architecture does not support grid cells input")
+            from architectures.recurrent.gru_bptt import GRU
+            rnn = GRU(
+                self.device,
+                scene_dim+vel_dim, output_dim,
+                latent_dim = self.args.latent_dim,
+                nonlinearity = self.args.nonlinearity,
+                dropouts = self.args.dropouts,
+                bias = self.args.bias,
+            ).to(self.device)
+        elif self.args.n_gridcells > 0:
             from architectures.recurrent_gridcells.rnn_bptt import RNN
             rnn = RNN(
                 self.device,

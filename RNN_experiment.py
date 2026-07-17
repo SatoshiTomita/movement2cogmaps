@@ -180,7 +180,7 @@ def main(args):
         torch.save(rnn, os.path.join(exp_dir, f"rnn_epoch0.pth"))
 
         config_wandb = {**{
-            "architecture": "RNN",
+            "architecture": args.architecture.upper(),
             "scene_dim": scene_dim,
             "vel_dim": vel_dim,
             "output_dim": output_dim,
@@ -195,6 +195,7 @@ def main(args):
             print("\n[*] Starting Wandb project")
             wandb.init(
                 project=f"iclr_{args.env}",
+                name=args.name_prefix,
                 config=config_wandb
             )
 
@@ -225,6 +226,8 @@ def main(args):
     if args.wandb:
         wandb.finish()
 
+    return exp_dir
+
 
 
 def list_of_strings(arg):
@@ -238,8 +241,16 @@ if __name__ == '__main__':
 
     # TRAINING PARAMETERS
     argparser.add_argument(
-        '--behaviour', type=str, required=True, # default='adult', # 
+        '--behaviour', type=str, default=None, # required unless --curriculum is used
         help="Behaviour group of the agent (crawl, walk, run, adult)")
+    argparser.add_argument(
+        '--architecture', type=str, default='rnn', choices=['rnn', 'gru'],
+        help="Recurrent architecture to use (rnn or gru). Default is rnn.")
+    argparser.add_argument(
+        '--curriculum', type=list_of_strings, default=None,
+        help="Comma-separated behaviours to train sequentially in a single run, "+\
+        "carrying over weights from one step to the next. Example: crawl,walk,run. "+\
+        "Each step is saved in its own directory. Overrides --behaviour.")
     argparser.add_argument(
         '--env', type=str, default='box_messy',
         help="Environment name (box_messy, circle_messy, ...)")
@@ -340,9 +351,32 @@ if __name__ == '__main__':
 
     if args.activity_only and args.wandb:
         raise ValueError("Wandb logging is not supported in activity-only mode")
-    
+
+    if args.curriculum is None and args.behaviour is None:
+        raise ValueError("Either --behaviour or --curriculum must be provided")
+
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    main(args)
+    if args.curriculum is not None:
+        # Train each behaviour sequentially in a single run, carrying over the
+        # weights from the previous step. Each step saves its own checkpoints.
+        prev_exp_dir = None
+        for step_idx, behaviour in enumerate(args.curriculum):
+            print(
+                f"\n\n########## CURRICULUM STEP {step_idx+1}/{len(args.curriculum)}: "
+                f"{behaviour} ##########\n"
+            )
+            args.behaviour = behaviour
+            if step_idx == 0:
+                # first step trains from scratch (unless user pinned a folder)
+                args.pretrained_behav = args.pretrained_behav
+            else:
+                # subsequent steps fine-tune from the previous step's weights;
+                # pretrained_behav sets the output sub-directory naming
+                args.pretrained_behav = args.curriculum[:step_idx]
+                args.pretrained_model_folder = prev_exp_dir
+            prev_exp_dir = main(args)
+    else:
+        main(args)
