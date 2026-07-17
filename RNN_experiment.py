@@ -339,6 +339,11 @@ if __name__ == '__main__':
         '--ratemap_norm', type=str, default='minmax',
         help="How to normalize rate maps (minmax or sum). Default to minmax.")
     argparser.add_argument(
+        '--activity_transform', type=str, default='identity',
+        choices=['identity', 'softplus'],
+        help="Transform applied to latent activity before all spatial analyses. "
+        "Use softplus for a non-negative activity representation; default is identity.")
+    argparser.add_argument(
         '--epoch_act', type=int, default=None,
         help="The epoch to load the model from. Default is None (last available epoch)")
     

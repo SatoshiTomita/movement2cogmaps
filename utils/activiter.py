@@ -24,9 +24,17 @@ class RNNActiviter():
     def init_default_args(self):
         if self.args.behaviour_act is None:
             self.args.behaviour_act = self.args.behaviour
+        # Kept for compatibility with configurations saved before this option
+        # was introduced.
+        if not hasattr(self.args, 'activity_transform'):
+            self.args.activity_transform = 'identity'
 
     def redefine_exp_dir(self):
         dir_name = f"act_{self.args.behaviour_act}_epoch{self.args.epoch_act}"
+        if self.args.activity_transform != 'identity':
+            # GRUの活性化関数はtanhで出力が負になる可能性がある
+            # 
+            dir_name += f"_{self.args.activity_transform}"
         self.exp_dir = os.path.join(self.exp_dir, dir_name)
         os.makedirs(self.exp_dir, exist_ok=True)
         print(f"\n[+] Created activity directory\n\t{self.exp_dir}")
@@ -70,12 +78,20 @@ class RNNActiviter():
         positions = np.concatenate(positions, axis=1)
         thetas = np.concatenate(thetas, axis=1)
 
+        if self.args.activity_transform == 'softplus':
+            # GRU states can be negative, while the rate-map and polar-map
+            # metrics treat their inputs as non-negative activity rates.
+            latent_activity = np.logaddexp(0, latent_activity)
+            print("\n[*] Applying softplus to latent activity for analysis")
+
         if save_output:
             np.save(os.path.join(self.exp_dir, 'latent_activity.npy'), latent_activity)
             np.save(os.path.join(self.exp_dir, 'positions.npy'), positions)
             np.save(os.path.join(self.exp_dir, 'thetas.npy'), thetas)
             with open(os.path.join(self.exp_dir, 'vloss_dict.json'), 'w') as f:
                 json.dump(vloss_dict, f, indent=4)
+            with open(os.path.join(self.exp_dir, 'activity_transform.txt'), 'w') as f:
+                f.write(f'{self.args.activity_transform}\n')
 
         return latent_activity, positions, thetas, vloss_dict
     
