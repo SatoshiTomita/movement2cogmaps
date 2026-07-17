@@ -33,7 +33,7 @@ class RNNActiviter():
         dir_name = f"act_{self.args.behaviour_act}_epoch{self.args.epoch_act}"
         if self.args.activity_transform != 'identity':
             # GRUの活性化関数はtanhで出力が負になる可能性がある
-            # 
+            # softplusを使用することで非負の活性化関数を使用する
             dir_name += f"_{self.args.activity_transform}"
         self.exp_dir = os.path.join(self.exp_dir, dir_name)
         os.makedirs(self.exp_dir, exist_ok=True)
