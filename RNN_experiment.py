@@ -195,7 +195,8 @@ def main(args):
             print("\n[*] Starting Wandb project")
             wandb.init(
                 project=f"iclr_{args.env}",
-                name=args.name_prefix,
+                name=trainer.get_model_name(),
+                group=f"GRU_{args.name_prefix}",
                 config=config_wandb
             )
 
