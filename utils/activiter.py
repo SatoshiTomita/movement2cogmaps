@@ -101,7 +101,10 @@ class RNNActiviter():
                 "\n[*] Applying per-unit min-max scaling to latent activity "
                 "for analysis"
             )
-
+        elif self.args.activity_transform == 'halfshift':
+            latent_activity=0.5*latent_activity+0.5
+            print("\n[*] Applying halfshift to latent activity for analysis")
+            
         if save_output:
             np.save(os.path.join(self.exp_dir, 'latent_activity.npy'), latent_activity)
             np.save(os.path.join(self.exp_dir, 'positions.npy'), positions)
