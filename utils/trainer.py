@@ -24,11 +24,28 @@ class RNNTrainer():
         # convert args to dict if it is a Namespace
         args = vars(args) if not isinstance(args, dict) else args
 
-        # GRU models use a compact name: GRU_{behaviour} (optionally prefixed)
-        if args.get('architecture', 'rnn') == 'gru':
-            model_name = 'GRU'
+        # Gated recurrent models use a compact name, e.g. GRU_crawl or
+        # LSTM_0717_crawl, optionally including a user-supplied prefix.
+        architecture = args.get('architecture', 'rnn')
+        if architecture in {'gru', 'lstm'}:
+            model_name = architecture.upper()
             if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
             model_name += f'_{args["behaviour"]}'
+            return model_name
+
+        # RSSM: RNN-style suffix plus the stochastic-latent parameters
+        if architecture == 'rssm':
+            model_name = 'RSSM'
+            if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
+            if args['pretrained_model_folder'] : model_name += '_ft'
+            if args['reset_hidden_at'] is not None : model_name += f'_reset{args["reset_hidden_at"]}'
+            model_name += (
+                f'_f{args["n_future_pred"]}_w{args["bptt_steps"]}_st{args["stride"]}'+
+                f'_fss4_do{str(args["dropouts"]).replace(" ", "")}'+
+                f'_lat{args["latent_dim"]}_stoch{args["stoch_dim"]}'+
+                f'_kl{args["kl_scale"]}_fn{args["free_nats"]}'+
+                f'_hreg{args["hidden_reg"]}_wreg{args["weights_reg"]}_s{args["seed"]:02d}'
+            )
             return model_name
 
         model_name = f'RNN'
@@ -416,16 +433,34 @@ class RNNTrainer():
             rnn_loaded = self.load_model_pretrained()
 
         # define RNN architecture
-        if getattr(self.args, 'architecture', 'rnn') == 'gru':
+        if getattr(self.args, 'architecture', 'rnn') in {'gru', 'lstm'}:
             if self.args.n_gridcells > 0:
-                raise NotImplementedError("GRU architecture does not support grid cells input")
-            from architectures.recurrent.gru_bptt import GRU
-            rnn = GRU(
+                raise NotImplementedError(
+                    f"{self.args.architecture.upper()} architecture does not support grid cells input"
+                )
+            if self.args.architecture == 'gru':
+                from architectures.recurrent.gru_bptt import GRU
+                recurrent_model = GRU
+            else:
+                from architectures.recurrent.lstm_bptt import LSTM
+                recurrent_model = LSTM
+            rnn = recurrent_model(
                 self.device,
                 scene_dim+vel_dim, output_dim,
                 latent_dim = self.args.latent_dim,
                 nonlinearity = self.args.nonlinearity,
                 dropouts = self.args.dropouts,
+                bias = self.args.bias,
+            ).to(self.device)
+        elif getattr(self.args, 'architecture', 'rnn') == 'rssm':
+            if self.args.n_gridcells > 0:
+                raise NotImplementedError("RSSM architecture does not support grid cells input")
+            from architectures.recurrent.rssm import RSSM
+            rnn = RSSM(
+                self.device,
+                scene_dim, vel_dim, output_dim,
+                determ_dim = self.args.latent_dim,
+                stoch_dim = self.args.stoch_dim,
                 bias = self.args.bias,
             ).to(self.device)
         elif self.args.n_gridcells > 0:
@@ -475,6 +510,12 @@ class RNNTrainer():
         return rnn, loss_fn, optimizer, lr_scheduler
 
     def define_bptt_trainer(self, optimizer, loss_fn):
+        if getattr(self.args, 'architecture', 'rnn') == 'rssm':
+            from architectures.recurrent.training import TrainerRSSM
+            return TrainerRSSM(
+                self.args, optimizer, loss_fn, self.device
+            )
+
         if self.args.n_gridcells > 0:
             from architectures.recurrent_gridcells.training import TrainerBPTT
         else:

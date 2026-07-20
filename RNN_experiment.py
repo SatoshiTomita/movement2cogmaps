@@ -196,7 +196,7 @@ def main(args):
             wandb.init(
                 project=f"iclr_{args.env}",
                 name=trainer.get_model_name(),
-                group=f"GRU_{args.name_prefix}",
+                group=f"{args.architecture.upper()}_{args.name_prefix}",
                 config=config_wandb
             )
 
@@ -245,8 +245,8 @@ if __name__ == '__main__':
         '--behaviour', type=str, default=None, # required unless --curriculum is used
         help="Behaviour group of the agent (crawl, walk, run, adult)")
     argparser.add_argument(
-        '--architecture', type=str, default='rnn', choices=['rnn', 'gru'],
-        help="Recurrent architecture to use (rnn or gru). Default is rnn.")
+        '--architecture', type=str, default='rnn', choices=['rnn', 'gru', 'lstm', 'rssm'],
+        help="Recurrent architecture to use (rnn, gru, lstm, or rssm). Default is rnn.")
     argparser.add_argument(
         '--curriculum', type=list_of_strings, default=None,
         help="Comma-separated behaviours to train sequentially in a single run, "+\
@@ -299,7 +299,18 @@ if __name__ == '__main__':
         help="Number of steps to backpropagation through time. Default is 9")
     argparser.add_argument(
         '--latent_dim', type=int, default=500,
-        help="Latent dimension of the RNN. Default is 500")
+        help="Latent dimension of the RNN. For the RSSM this is the "+\
+        "deterministic (GRU) state size. Default is 500")
+    argparser.add_argument(
+        '--stoch_dim', type=int, default=32,
+        help="RSSM only: size of the stochastic latent z. The analysed latent "+\
+        "activity then has dimension latent_dim + stoch_dim. Default is 32")
+    argparser.add_argument(
+        '--kl_scale', type=float, default=1.0,
+        help="RSSM only: weight of the KL(posterior || prior) term. Default is 1.0")
+    argparser.add_argument(
+        '--free_nats', type=float, default=3.0,
+        help="RSSM only: free-nats floor below which the KL is not penalised. Default is 3.0")
     argparser.add_argument(
         '--lr', type=float, default=5e-5,
         help="Learning rate. Default is 5e-5")
@@ -341,9 +352,11 @@ if __name__ == '__main__':
         help="How to normalize rate maps (minmax or sum). Default to minmax.")
     argparser.add_argument(
         '--activity_transform', type=str, default='identity',
-        choices=['identity', 'softplus'],
+        choices=['identity', 'softplus', 'minmax'],
         help="Transform applied to latent activity before all spatial analyses. "
-        "Use softplus for a non-negative activity representation; default is identity.")
+        "Use softplus for a non-negative activity representation, or minmax "
+        "to scale each latent unit to [0, 1] across all trajectories and "
+        "timesteps; default is identity.")
     argparser.add_argument(
         '--epoch_act', type=int, default=None,
         help="The epoch to load the model from. Default is None (last available epoch)")

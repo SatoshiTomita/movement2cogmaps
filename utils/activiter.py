@@ -83,6 +83,24 @@ class RNNActiviter():
             # metrics treat their inputs as non-negative activity rates.
             latent_activity = np.logaddexp(0, latent_activity)
             print("\n[*] Applying softplus to latent activity for analysis")
+        elif self.args.activity_transform == 'minmax':
+            # Use one scale per unit across every trajectory and timestep so
+            # trajectory boundaries remain comparable for stability and
+            # circular-shift analyses.
+            unit_min = np.min(latent_activity, axis=(0, 1), keepdims=True)
+            unit_range = (
+                np.max(latent_activity, axis=(0, 1), keepdims=True) - unit_min
+            )
+            latent_activity = np.divide(
+                latent_activity - unit_min,
+                unit_range,
+                out=np.zeros_like(latent_activity),
+                where=unit_range > np.finfo(latent_activity.dtype).eps,
+            )
+            print(
+                "\n[*] Applying per-unit min-max scaling to latent activity "
+                "for analysis"
+            )
 
         if save_output:
             np.save(os.path.join(self.exp_dir, 'latent_activity.npy'), latent_activity)
@@ -404,6 +422,9 @@ class RNNActiviter():
     ):
         with open(os.path.join(self.exp_dir, f'summary.txt'), 'w') as f:
             s = f'Latent space dimension is {self.args.latent_dim} neurons\n\n'
+            f.write(s)
+            print(s, end='')
+            s = 'HD classification: SI/RVL thresholds\n\n'
             f.write(s)
             print(s, end='')
 
