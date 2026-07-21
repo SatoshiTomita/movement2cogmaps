@@ -21,32 +21,14 @@ def _detach_recurrent_state(state):
 
 
 class TrainerBPTT(Trainer):
-    """Trainer for RNNs using Backpropagation Through Time (BPTT).
-
-    Supports multi-step future prediction, hidden/weight regularisation,
-    gradient clipping, and optional topological loss.
-
-    Args:
-        args: Namespace with training hyperparameters (n_future_pred, hidden_reg,
-              weights_reg, clip_value, reset_hidden_at).
-        optimizer: Torch optimizer.
-        loss_fn: Loss function.
-        device: Torch device.
-    """
 
     def __init__(self, args, optimizer, loss_fn, device):
         super().__init__(optimizer, loss_fn, device)
         self.args = args
 
     def train_epoch(self, model, dataloader):
-        """Run one training epoch over all batches.
-
-        Args:
-            model: The RNN model.
-            dataloader: DataLoader yielding (scene, vel, rot_vel, pos, theta, labels).
-
-        Returns:
-            Tuple of (model, dict of averaged training metrics).
+        """
+        学習ループ
         """
         model.train()
     
@@ -57,7 +39,7 @@ class TrainerBPTT(Trainer):
             # zero your gradients for every batch
             self.optimizer.zero_grad()
 
-            # skip positions and thetas because not needed
+            # scene:時間窓のシーン画像, vel:時間窓の線形速度, rot_vel:時間窓の角速度, pos:時間窓の位置座標, thet:時間窓の方角, labels:時間窓の次ステップの画像
             scene, vel, rot_vel, _, _, labels = data
             scene = scene.squeeze(dim=0).to(self.device)
 
@@ -69,26 +51,27 @@ class TrainerBPTT(Trainer):
                     rot_vel.squeeze(dim=0)[:, f, ...].to(self.device)
                 ), dim=-1)
 
-                # First step: persist hidden state for next batch
+                # 最初の予測の場合、前の隠れ状態を利用して予測する
                 if f == 0:
                     outputs, hidden_all, hidden_last = model(inputs, hidden_last)
                     h = _clone_recurrent_state(hidden_last) if self.args.n_future_pred>1 else None
+                # それ以降の予測では、前の隠れ状態を利用して予測する
                 else:
                     outputs, _, h = model(inputs, h)
                 outputs_all.append(outputs)
                 scene = outputs
 
-            # stack all outputs onto a new dimension so that they match the labels shape
+            # 未来予測を1つのテンソルにまとめる
             outputs_all = torch.stack(outputs_all, dim=1)
             labels = labels.squeeze(dim=0).to(self.device)
 
-            # compute the loss and its gradients
+            # モデルの予測と正解のラベルを比較する
             loss = self.loss_fn(outputs_all, labels)
             
-            # compute the hidden state and weights l2 norm
+            # 隠れ状態の正則化
             hidden_l2norm = get_hidden_l2norm(hidden_all)
             hidden_reg_loss = self.args.hidden_reg * hidden_l2norm
-
+            # 重みの正則化
             weights_l2norm = get_weights_l2norm(model)
             weights_reg_loss = self.args.weights_reg * weights_l2norm
 
@@ -97,6 +80,7 @@ class TrainerBPTT(Trainer):
                 [loss, hidden_reg_loss, weights_reg_loss, loss+hidden_reg_loss+weights_reg_loss],
                 return_dict
             )
+            # 正則化項を損失に加える
             if self.args.hidden_reg > 0:
                 loss += hidden_reg_loss
             if self.args.weights_reg > 0:
@@ -104,10 +88,11 @@ class TrainerBPTT(Trainer):
 
             # calculate gradients and clip values (if applicable)
             loss.backward()
+            # 勾配クリッピング
             if self.args.clip_value is not None:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.clip_value)
 
-            # adjust learning weights
+            # 重みを更新
             self.optimizer.step()
 
             # update dict with additional model information
@@ -117,6 +102,7 @@ class TrainerBPTT(Trainer):
             return_dict = self._update_norms(model, return_dict)
 
             hidden_last = _detach_recurrent_state(hidden_last)
+            # reset_hidden_atが指定されている場合、指定されたステップごとに隠れ状態をリセットする
             if self.args.reset_hidden_at is not None and i % self.args.reset_hidden_at == 0:
                 hidden_last = None
         

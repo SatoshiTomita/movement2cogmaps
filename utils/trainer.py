@@ -24,8 +24,7 @@ class RNNTrainer():
         # convert args to dict if it is a Namespace
         args = vars(args) if not isinstance(args, dict) else args
 
-        # Gated recurrent models use a compact name, e.g. GRU_crawl or
-        # LSTM_0717_crawl, optionally including a user-supplied prefix.
+        # argsからモデル名を生成する(デフォルトはrnn)
         architecture = args.get('architecture', 'rnn')
         if architecture in {'gru', 'lstm'}:
             model_name = architecture.upper()
@@ -67,9 +66,11 @@ class RNNTrainer():
         return model_name
     
     def init_default_args(self):
+        """訓練と評価に必要な初期設定値を定義"""
         self.args.env_shape = self.args.env.split("_")[0]
 
         # Rat In A Box simulations information
+        #  train/test/activityのseedを指定
         n_trials_train = 17
         n_trials_test = 4
         n_trials_act = 5
@@ -90,27 +91,28 @@ class RNNTrainer():
         self.args.seeds_all = self.args.seeds_train + list(np.union1d(self.args.seeds_test, self.args.seeds_act))
 
         print(f'\tSeeds train: {self.args.seeds_train}\n\tSeeds test: {self.args.seeds_test}\n\tSeeds activity: {self.args.seeds_act}')
+        # フレームレート、一回のシミュレート時間、フレームの次元、フレームの間引き設定
         self.args.fps = 10
         self.args.seconds = 720
         self.args.frame_dim = [128, 64]
         self.args.frame_subsampling = 4
 
-        # discounted predictions parameters
+        # 未来の予測に対する割引係数
         self.args.discount_factor = 0.7
 
-        # lr scheduler parameters
+        # 学習率スケジューラが始まるエポック数、最終的な減衰りつ、減衰率の計算
         self.args.lr_sched_start_epoch = self.args.epochs // 2
         self.args.lr_sched_final_gamma = 0.1
         self.args.lr_sched_gamma =\
             self.args.lr_sched_final_gamma**(1/self.args.lr_sched_start_epoch)
 
-        # training parameters
+        # モデルの保存間隔、ログ出力間隔、勾配クリッピングの値を設定
         self.args.save_model_every = 500
         self.args.log_every = 50
         self.args.clip_value = 1.
 
     def define_exp_dir(self):
-
+        """実験結果を保存するディレクトリを作成"""
         if self.args.pretrained_behav is not None:
             folder_name = '_'.join(self.args.pretrained_behav)
         else:
@@ -146,7 +148,7 @@ class RNNTrainer():
             ) for s in self.args.seeds_all
         ]
         for idx, ld in enumerate(load_dirs):
-            # load frames
+            # activity_onlyがTrueの場合、seeds_trainに含まれるシードのデータはスキップする
             if (
                 self.args.activity_only and
                 idx+1 in self.args.seeds_train
@@ -161,6 +163,7 @@ class RNNTrainer():
                 os.path.join(ld, self.args.env),
                 [self.args.frame_dim[0]//self.args.frame_subsampling, self.args.frame_dim[1]//self.args.frame_subsampling]
             )
+            # 平滑化(n_frames,1,64,128)-> (n_frames, 64*128)
             videos.append(video_lq.reshape(video_lq.shape[0], -1))
 
             # load riab data
@@ -178,6 +181,7 @@ class RNNTrainer():
         return videos, thetas, positions, velocities, rot_velocities
     
     def check_shapes(self, data):
+        """dataに含まれるデータが全て同じ形状かを確認する関数"""
         # check that all loaded data have the same shape
         shape = None
         for idx, d in enumerate(data):
@@ -192,6 +196,7 @@ class RNNTrainer():
         return shape
 
     def convolve_videos(self, videos, positions, thetas):
+        """CNNで動画を畳み込む関数だが使われていなさそう"""
         from utils import encode_video_cnn
 
         if "singleenv" in self.args.cnn:
@@ -225,6 +230,7 @@ class RNNTrainer():
 
 
     def preprocess_data(self, videos, velocities, rot_velocities):
+        """画像、速度、回転速度のデータをmin,maxで0,1に正規化する関数"""
         from utils.data_handler import minmax_normalization
 
         print("\tNormalizing data with min-max scaling")
@@ -235,7 +241,8 @@ class RNNTrainer():
         return videos, velocities, rot_velocities
 
     def combine_videos(self, videos, velocities, rot_velocities, positions, thetas):
-
+        """複数のシミュレーション思考を訓練・テスト・活動用に分割する関数"""
+        # train,test,activityのデータに分割
         videos_multisubs, videos_multisubs_test, videos_multisubs_act = [], [], []
         velocities_multisubs, velocities_multisubs_test, velocities_multisubs_act = [], [], []
         rot_velocities_multisubs, rot_velocities_multisubs_test, rot_velocities_multisubs_act = [], [], []
@@ -350,6 +357,7 @@ class RNNTrainer():
         # STRIDE*SEEDS examples of the same time window length and the number
         # of batches corresponds to the number of windows that fit into the experiment length
 
+        # gridcellを注入する場合
         if self.args.n_gridcells > 0:
             from architectures.recurrent_gridcells.datasets import WindowedPredictionDataset
             dataloader = torch.utils.data.DataLoader(
@@ -426,9 +434,11 @@ class RNNTrainer():
         return rnn
 
     def define_training_objects(self, scene_dim, vel_dim, output_dim):
+        """RNNモデルと学習設定一式を生成する関数"""
         from architectures.losses_custom import DiscountLoss
 
         rnn_loaded = None
+        # 事前学習済みモデルが指定されている場合、モデルをロードする
         if self.args.pretrained_model_folder or self.args.pretrained_behav:
             rnn_loaded = self.load_model_pretrained()
 
@@ -444,6 +454,8 @@ class RNNTrainer():
             else:
                 from architectures.recurrent.lstm_bptt import LSTM
                 recurrent_model = LSTM
+            # LSTMまたはGRUモデルをインスタンス化する
+            # [scene_dim+vel_dim]->[output_dim]
             rnn = recurrent_model(
                 self.device,
                 scene_dim+vel_dim, output_dim,
@@ -452,6 +464,7 @@ class RNNTrainer():
                 dropouts = self.args.dropouts,
                 bias = self.args.bias,
             ).to(self.device)
+        # RSSMの場合
         elif getattr(self.args, 'architecture', 'rnn') == 'rssm':
             if self.args.n_gridcells > 0:
                 raise NotImplementedError("RSSM architecture does not support grid cells input")
@@ -487,13 +500,12 @@ class RNNTrainer():
         print("\n[*] Model parameters:")
         for name, p in rnn.named_parameters():
             print(f"\t{name}, shape {p.shape}, requires grad {p.requires_grad}")
-            # if rnn_loaded is not None, initialize the weights of rnn if
-            # the component with the same name is found in the loaded model
+            # 事前学習済みのモデルが指定されている場合、重みをロードする
             if rnn_loaded is not None and name in rnn_loaded.state_dict():
                 print(f"\t\t+++ Loading weights from previous model +++")
                 rnn.state_dict()[name].copy_(rnn_loaded.state_dict()[name].detach())
 
-        # define loss function
+        # 損失関数(L1Loss)の定義
         loss_fn = DiscountLoss(
             torch.nn.L1Loss(reduction='none'), discount_factor=self.args.discount_factor, n_future_pred=self.args.n_future_pred
         ).to(self.device)
@@ -510,6 +522,7 @@ class RNNTrainer():
         return rnn, loss_fn, optimizer, lr_scheduler
 
     def define_bptt_trainer(self, optimizer, loss_fn):
+        """BPTTの学習を行うためのTrainerクラスを定義する関数"""
         if getattr(self.args, 'architecture', 'rnn') == 'rssm':
             from architectures.recurrent.training import TrainerRSSM
             return TrainerRSSM(
@@ -534,10 +547,10 @@ class RNNTrainer():
 
         for epoch in range(self.args.epochs):
             start = time.time()
-
+            # 学習実行
             rnn, dict_train = bptt_trainer.train_epoch(rnn, dl_train)
             loss_train = dict_train["loss/tot_loss_train"]
-            
+            # テスト実行
             dict_test = bptt_trainer.test_epoch(rnn, dl_test)
             loss_test = dict_test["loss/tot_loss_test"]
 

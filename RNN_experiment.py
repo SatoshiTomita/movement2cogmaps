@@ -124,7 +124,7 @@ def main(args):
         )
 
     trainer = RNNTrainer(args, DATA_DIR, DEVICE)
-
+    # 動画、角度、位置、速度、回転速度のシミュレーションデータを読み込む
     videos, thetas, positions, velocities, rot_velocities =\
         trainer.load_simulations()
 
@@ -132,6 +132,7 @@ def main(args):
     velocity_shape = trainer.check_shapes(velocities)
     rot_velocity_shape = trainer.check_shapes(rot_velocities)
 
+    # 動画、速度、回転速度の特徴量の次元数を取得
     video_n_features = video_shape[-1]
     velocity_n_features = velocity_shape[-1]
     rot_velocity_n_features = rot_velocity_shape[-1]
@@ -201,6 +202,7 @@ def main(args):
             )
 
         print("\n[*] Training model...")
+        # 学習実行
         rnn = trainer.train(rnn, bptt_trainer, dataloader_train, dataloader_test, lr_sched)
 
         figs = bptt_trainer.plot_test_examples(

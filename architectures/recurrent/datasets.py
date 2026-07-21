@@ -3,19 +3,8 @@ import torch
 
 
 class WindowedPredictionDataset(Dataset):
-    """Dataset that splits time-series data into fixed-size windows for next-step prediction.
-
-    Each sample contains a window of scene frames, velocities, positions, and headings,
-    along with shifted labels for multi-step future prediction.
-
-    Args:
-        video: Scene observations array [C, T] or None.
-        velocity: Linear velocity array [C, T].
-        rot_velocity: Rotational velocity array [C, T].
-        positions: Position coordinates array [C, T].
-        thetas: Heading angles array [C, T].
-        window_size: Number of timesteps per window.
-        n_future_pred: Number of future prediction steps (default: 1).
+    """
+    [video：シーン画像の時系列, velocity：線形速度, rot_velocity：角速度, positions：位置座標, thetas：方角,window_size：ウィンドウサイズ, n_future_pred：未来予測ステップ数] -> [inputs:時間窓のシーン画像, vel:時間窓の線形速度, rot_vel:時間窓の角速度, pos:時間窓の位置座標, thet:時間窓の方角, labels:時間窓の次ステップの画像]
     """
 
     def __init__(self, video, velocity, rot_velocity, positions, thetas,
