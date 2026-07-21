@@ -354,7 +354,7 @@ if __name__ == '__main__':
         help="How to normalize rate maps (minmax or sum). Default to minmax.")
     argparser.add_argument(
         '--activity_transform', type=str, default='identity',
-        choices=['identity', 'softplus', 'minmax'],
+        choices=['identity', 'softplus', 'minmax', 'halfshift'],
         help="Transform applied to latent activity before all spatial analyses. "
         "Use softplus for a non-negative activity representation, or minmax "
         "to scale each latent unit to [0, 1] across all trajectories and "
