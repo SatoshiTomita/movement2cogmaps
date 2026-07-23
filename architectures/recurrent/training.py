@@ -319,6 +319,8 @@ class TrainerRSSM(TrainerBPTT):
             outputs_all = torch.stack(outputs_all, dim=1)
             labels = labels.squeeze(dim=0).to(self.device)
 
+            # IMPORTANT:RSSMでここで再構成誤差を計算する際に渡すのは、現在の時刻の画像であるべき
+            # このlabelsが現在の画像か、1ステップ先の画像化を確認する
             recon_loss = self.loss_fn(outputs_all, labels)
             kl_loss = kl / self.args.n_future_pred
             kl_scaled = self.args.kl_scale * kl_loss

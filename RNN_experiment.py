@@ -155,6 +155,7 @@ def main(args):
 
     print(f"\n[*] Defining dataloaders with {args.bptt_steps} BPTT steps and {args.n_future_pred} future predictions")
     if not args.activity_only:
+        # ここでdataloader_trainとdataloader_testを生成している
         dataloader_train = trainer.generate_dataloader(
             video_train, velocity_train, rot_velocity_train, positions_train, thetas_train, verbose=True
         )
@@ -202,7 +203,7 @@ def main(args):
             )
 
         print("\n[*] Training model...")
-        # 学習実行
+        # ここでRNNの学習を行っている
         rnn = trainer.train(rnn, bptt_trainer, dataloader_train, dataloader_test, lr_sched)
 
         figs = bptt_trainer.plot_test_examples(
