@@ -1,0 +1,329 @@
+/home/tomita/movement2cogmaps/.venv311/lib/python3.11/site-packages/ratinabox/utils.py:869: UserWarning: Found 1 unexpected params key(s) while initializing GridCells object: 'softmax'.
+If you intended to set this parameter, ignore this message. To see all default parameters for this class call GridCells.get_all_default_params().
+  warnings.warn(
+
+            ######################################################################
+            ########################### TRAINING PART ############################
+            ######################################################################
+            
+	Seeds train: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+	Seeds test: [18, 19, 20, 21]
+	Seeds activity: [18, 19, 20, 21, 22, 23, 24, 25, 26]
+
+[*] Current model name:
+	RNN_gridcellssm25_mod[0.2,0.4,0.6]_ori[0.1]_reset10_f1_w9_st10_fss4_do[0,0,0]_lat500_nlsigmoid_hreg0.0_wreg0.0_s01
+
+[+] Created model directory
+	/home/tomita/movement2cogmaps/data/box/adult/predictions/box_messy/vanilla/RNN_gridcellssm25_mod[0.2,0.4,0.6]_ori[0.1]_reset10_f1_w9_st10_fss4_do[0,0,0]_lat500_nlsigmoid_hreg0.0_wreg0.0_s01
+
+[*] Loading simulations from:
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed01/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed02/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed03/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed04/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed05/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed06/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed07/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed08/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed09/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed10/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed11/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed12/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed13/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed14/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed15/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed16/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed17/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed18/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed19/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed20/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed21/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed22/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed23/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed24/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed25/box_messy: (7200, 1, 16, 32)
+/home/tomita/movement2cogmaps/data/box/adult/exp_dim0.635_fps10_s720_seed26/box_messy: (7200, 1, 16, 32)
+
+
+[*] Features shapes:
+	Video: 512
+	Velocity: 2
+	Rot velocity: 1
+
+[*] Preprocessing data
+	Normalizing data with min-max scaling
+
+[+] Creating multiple subsampling with stride 10
+	video_train: (170, 720, 512)
+	velocity_train: (170, 719, 2)
+	rot_velocity_train: (170, 719, 1)
+	positions_train: (170, 720, 2)
+	thetas_train: (170, 720, 1)
+
+	video_test: (40, 720, 512)
+	velocity_test: (40, 719, 2)
+	rot_velocity_test: (40, 719, 1)
+	positions_test: (40, 720, 2)
+	thetas_test: (40, 720, 1)
+
+	video_act: (90, 720, 512)
+	velocity_act: (90, 719, 2)
+	rot_velocity_act: (90, 719, 1)
+	positions_act: (90, 720, 2)
+	thetas_act: (90, 720, 1)
+
+[*] Defining dataloaders with 9 BPTT steps and 1 future predictions
+	Dataloader length: 79
+
+	BATCH 0
+	video: torch.Size([1, 170, 9, 512])
+	velocity: torch.Size([1, 170, 1, 9, 2])
+	rotational velocity: torch.Size([1, 170, 1, 9, 1])
+	grid cells: torch.Size([1, 170, 1, 9, 25])
+	labels: torch.Size([1, 170, 1, 9, 512])
+	positions: torch.Size([1, 170, 1, 9, 2])
+	thetas: torch.Size([1, 170, 1, 9, 1])
+
+	BATCH 78
+	video: torch.Size([1, 170, 9, 512])
+	velocity: torch.Size([1, 170, 1, 9, 2])
+	rotational velocity: torch.Size([1, 170, 1, 9, 1])
+	grid cells: torch.Size([1, 170, 1, 9, 25])
+	labels: torch.Size([1, 170, 1, 9, 512])
+	positions: torch.Size([1, 170, 1, 9, 2])
+	thetas: torch.Size([1, 170, 1, 9, 1])
+
+
+[*] Model parameters:
+	gc2hidden.weight, shape torch.Size([500, 25]), requires grad True
+	gc2hidden.bias, shape torch.Size([500]), requires grad True
+	rnn.rnn_cell.in2hidden.weight, shape torch.Size([500, 515]), requires grad True
+	rnn.rnn_cell.hidden2hidden.weight, shape torch.Size([500, 500]), requires grad True
+	decoder_lin.weight, shape torch.Size([512, 500]), requires grad True
+
+[+] Saving untrained model and configuration file
+
+[*] Training model...
+[*] EPOCH 50:
+	LOSS train 0.11942 test 0.12034
+	0.591 seconds per epoch
+
+[*] EPOCH 100:
+	LOSS train 0.11732 test 0.11852
+	0.610 seconds per epoch
+
+[*] EPOCH 150:
+	LOSS train 0.11557 test 0.11679
+	0.621 seconds per epoch
+
+[*] EPOCH 200:
+	LOSS train 0.11401 test 0.11525
+	0.616 seconds per epoch
+
+[*] EPOCH 250:
+	LOSS train 0.11278 test 0.11420
+	0.621 seconds per epoch
+
+[*] EPOCH 300:
+	LOSS train 0.11168 test 0.11333
+	0.611 seconds per epoch
+
+[*] EPOCH 350:
+	LOSS train 0.11070 test 0.11263
+	0.593 seconds per epoch
+
+[*] EPOCH 400:
+	LOSS train 0.10984 test 0.11216
+	0.579 seconds per epoch
+
+[*] EPOCH 450:
+	LOSS train 0.10911 test 0.11156
+	0.569 seconds per epoch
+
+[*] EPOCH 500:
+	LOSS train 0.10831 test 0.11134
+	0.560 seconds per epoch
+
+[+] Saving model at epoch 500...
+
+[*] EPOCH 550:
+	LOSS train 0.10759 test 0.11076
+	0.553 seconds per epoch
+
+[*] EPOCH 600:
+	LOSS train 0.10676 test 0.11026
+	0.554 seconds per epoch
+
+[*] EPOCH 650:
+	LOSS train 0.10599 test 0.10977
+	0.557 seconds per epoch
+
+[*] EPOCH 700:
+	LOSS train 0.10522 test 0.10936
+	0.561 seconds per epoch
+
+[*] EPOCH 750:
+	LOSS train 0.10449 test 0.10918
+	0.564 seconds per epoch
+
+[*] EPOCH 800:
+	LOSS train 0.10373 test 0.10878
+	0.567 seconds per epoch
+
+[*] EPOCH 850:
+	LOSS train 0.10299 test 0.10856
+	0.564 seconds per epoch
+
+[*] EPOCH 900:
+	LOSS train 0.10237 test 0.10833
+	0.565 seconds per epoch
+
+[*] EPOCH 950:
+	LOSS train 0.10183 test 0.10817
+	0.567 seconds per epoch
+
+[*] EPOCH 1000:
+	LOSS train 0.10137 test 0.10803
+	0.570 seconds per epoch
+
+[+] Saving model at epoch 1000...
+
+[*] EPOCH 1050:
+	LOSS train 0.10097 test 0.10792
+	0.569 seconds per epoch
+
+[*] EPOCH 1100:
+	LOSS train 0.10063 test 0.10782
+	0.565 seconds per epoch
+
+[*] EPOCH 1150:
+	LOSS train 0.10033 test 0.10773
+	0.561 seconds per epoch
+
+[*] EPOCH 1200:
+	LOSS train 0.10008 test 0.10765
+	0.558 seconds per epoch
+
+[*] EPOCH 1250:
+	LOSS train 0.09986 test 0.10758
+	0.555 seconds per epoch
+
+[*] EPOCH 1300:
+	LOSS train 0.09968 test 0.10752
+	0.552 seconds per epoch
+
+[*] EPOCH 1350:
+	LOSS train 0.09951 test 0.10746
+	0.551 seconds per epoch
+
+[*] EPOCH 1400:
+	LOSS train 0.09938 test 0.10741
+	0.553 seconds per epoch
+
+[*] EPOCH 1450:
+	LOSS train 0.09926 test 0.10737
+	0.555 seconds per epoch
+
+[*] EPOCH 1500:
+	LOSS train 0.09915 test 0.10733
+	0.557 seconds per epoch
+
+[+] Saving model at epoch 1500...
+
+[*] Training complete!
+
+
+        ######################################################################
+        ########################### ACTIVITY PART ############################
+        ######################################################################
+        
+
+[*] Loading model from
+	/home/tomita/movement2cogmaps/data/box/adult/predictions/box_messy/vanilla/RNN_gridcellssm25_mod[0.2,0.4,0.6]_ori[0.1]_reset10_f1_w9_st10_fss4_do[0,0,0]_lat500_nlsigmoid_hreg0.0_wreg0.0_s01/rnn_epoch1500.pth
+
+[+] Created activity directory
+	/home/tomita/movement2cogmaps/data/box/adult/predictions/box_messy/vanilla/RNN_gridcellssm25_mod[0.2,0.4,0.6]_ori[0.1]_reset10_f1_w9_st10_fss4_do[0,0,0]_lat500_nlsigmoid_hreg0.0_wreg0.0_s01/act_adult_epoch1500
+
+[+] Extracting latent activity from the model
+	loss/loss_test: 0.10673
+	loss/loss_wrt_input: 0.12170
+	loss/distance_input: 0.14779
+	loss/hidden_reg_loss_test: 0.00000
+	loss/weights_reg_loss_test: 0.00000
+	loss/tot_loss_test: 0.10673
+	hidden_layer/hidden_l2norm: 6.95587
+	weights/gc2hidden.weight: 17.71365
+	weights/rnn.rnn_cell.in2hidden.weight: 30.24059
+	weights/rnn.rnn_cell.hidden2hidden.weight: 38.12263
+	weights/decoder_lin.weight: 28.98608
+
+[*] Split the data to calculate cells stability later
+	Halves shapes: (31995, 500), (31995, 500)
+
+[+] Calculating sRSA (time elapsed: 3.8 minutes)
+
+[*] Reshaped data: (63990, 500), (63990, 2), (63990,)
+
+[+] Plotting trajectory heatmap
+
+[+] Extracting RNN place activity from hidden units
+	Calculating metric SIr
+	Rate maps stability
+	Rate maps field detection
+	Average rate maps flipped (for border preference)
+	Calculating rate maps vs HD
+
+[+] Extracting RNN head direction activity from hidden units
+	Calculating metrics SId and RVL
+	Polar maps stability
+	Calculating polar maps vs place
+
+[+] Calculating position and HD decoding errors
+
+[+] Analyzing selected units
+	Plotting rate maps vs HD
+	Plotting polar maps vs place
+	Plotting polar maps and rate maps of conjunctive cells
+
+[+] Plotting activity results
+	Plotting place-related activity
+	Plotting HD-related activity
+
+[+] Summary
+
+Latent space dimension is 500 neurons
+
+HD classification: SI/RVL thresholds
+
+loss/loss_test: 0.10673
+loss/loss_wrt_input: 0.12170
+loss/distance_input: 0.14779
+loss/hidden_reg_loss_test: 0.00000
+loss/weights_reg_loss_test: 0.00000
+loss/tot_loss_test: 0.10673
+hidden_layer/hidden_l2norm: 6.95587
+weights/gc2hidden.weight: 17.71365
+weights/rnn.rnn_cell.in2hidden.weight: 30.24059
+weights/rnn.rnn_cell.hidden2hidden.weight: 38.12263
+weights/decoder_lin.weight: 28.98608
+
+Number of place cells: 166
+Number of HD cells: 28
+Number of conjunctive cells: 76
+
+Position decoding error: 3.2 (SEM: 0.0)
+HD decoding error: 29 (SEM: 0)
+
+sRSA (Spearman corr): 0.61
+
+Rate maps number of fields: 1.54 (1.54 in place cells, 1.32 in conjunctive cells)
+Rate maps field dimension: 200.64 (192.08 in place cells, 213.43 in conjunctive cells)
+
+Rate maps stability 1st vs 2nd half: 0.94 (0.97 in place cells, 0.95 in conjunctive cells)
+Rate maps stability vs HD: 0.67 (0.76 in place cells, 0.66 in conjunctive cells)
+
+Polar maps stability 1st vs 2nd half: 0.97 (1.00 in HD units, 1.00 in conjunctive cells)
+Polar maps stability vs place: 0.52 (0.84 in HD units, 0.67 in conjunctive cells)
+
+[*] Finished
+
