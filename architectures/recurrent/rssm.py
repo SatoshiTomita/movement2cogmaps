@@ -1,137 +1,118 @@
 import torch
+from utils.states import (CategoricStoch, NormalStoch, WorldStates, WorldStatesLayer,
+                              CoarseWorldStates, Worlds, stack_worlds, stack_dicts)
+from utils.config import RSSMConfig
+from dataclasses import asdict, is_dataclass
+from utils.utils import mytorch
+import torch.nn as nn
+from networks.distributions import Representation, Transition
+import networks.rnn as rnn
 
-
-class RSSM(torch.nn.Module):
-    """Recurrent State-Space Model (RSSM) for next-step scene prediction.
-
-    Drop-in replacement for ``architectures.recurrent.rnn_bptt.RNN`` in the
-    training/activity pipeline. The concatenated ``inputs`` tensor
-    ``[scene, velocity, rot_velocity]`` is split internally into the
-    observation (scene) and the action (velocities). The recurrent state is
-    packed as a single tensor ``concat(determ, stoch)`` so it can be carried
-    over across BPTT windows exactly like the plain RNN hidden state, and so
-    the downstream place/HD analysis (which reads ``hidden_all``) works
-    unchanged with ``latent_dim = determ_dim + stoch_dim``.
-
-    Following the movement2cogmaps convention, the decoder predicts the *next*
-    frame from the latent state, so the target stays the next scene frame and
-    the existing ``DiscountLoss`` can be reused. The KL term between prior and
-    posterior is exposed through ``last_prior`` / ``last_posterior`` attributes
-    after each forward pass.
-
-    Args:
-        device: Torch device for tensor allocation.
-        obs_dim: Dimensionality of the observation (scene) features.
-        action_dim: Dimensionality of the action (velocity + rot velocity).
-        output_dim: Dimensionality of the decoded output (next scene).
-        determ_dim: Deterministic (GRU) hidden state size (default: 500).
-        stoch_dim: Stochastic latent size (default: 32).
-        hidden_units: Width of the prior/posterior/encoder MLPs (default: 200).
-        min_std: Minimum standard deviation for the latent distributions.
-        bias: Whether to use bias in the decoder (default: False).
-    """
-
-    def __init__(self, device, obs_dim, action_dim, output_dim,
-                 determ_dim=500, stoch_dim=32, hidden_units=200,
-                 min_std=0.1, bias=False):
+class RSSM(nn.Module):
+    def __init__(
+        self,
+        obs_dim: int,
+        input_dim: int,
+        cfg: RSSMConfig
+    ):
         super().__init__()
+        self.coarse_obs = None
 
-        self.device = device
-        self.obs_dim = obs_dim
-        self.action_dim = action_dim
-        self.determ_dim = determ_dim
-        self.stoch_dim = stoch_dim
-        self.min_std = min_std
-
-        # deterministic transition: h_t = GRUCell([z_{t-1}, a_t], h_{t-1})
-        self.cell = torch.nn.GRUCell(stoch_dim + action_dim, determ_dim, bias=True)
-
-        # prior p(z_t | h_t)
-        self.prior_net = torch.nn.Sequential(
-            torch.nn.Linear(determ_dim, hidden_units),
-            torch.nn.ELU(),
-            torch.nn.Linear(hidden_units, 2 * stoch_dim),
+        self.rnn = getattr(rnn, f"{cfg.rnn_name}Cell")(
+            input_dim + (cfg.stoch_cfg.stoch_dim*cfg.stoch_cfg.n_class),
+            cfg.determ_dim,
+            obs_dim if cfg.init_from_ == "obs" else cfg.init_from_,
+            **asdict(cfg.rnn_cfg) if is_dataclass(cfg.rnn_cfg) else cfg.rnn_cfg,
         )
+        self._is_vqrnn = "VQ" in cfg.rnn_name
+        self._init_from_ = cfg.init_from_
+        self._init_with_ = cfg.init_with_
 
-        # observation encoder enc(o_t)
-        self.obs_encoder = torch.nn.Sequential(
-            torch.nn.Linear(obs_dim, hidden_units),
-            torch.nn.ELU(),
-        )
+        if cfg.stoch_cfg.stoch_dim:
+            self.prior = Transition(
+                cfg.determ_dim, **asdict(cfg.stoch_cfg) if is_dataclass(cfg.stoch_cfg) else cfg.stoch_cfg)
+            self.posterior = Representation(
+                obs_dim, cfg.determ_dim, **asdict(cfg.stoch_cfg) if is_dataclass(cfg.stoch_cfg) else cfg.stoch_cfg
+            )
+            assert self.prior.stoch_dim == self.posterior.stoch_dim
 
-        # posterior q(z_t | h_t, enc(o_t))
-        self.post_net = torch.nn.Linear(determ_dim + hidden_units, 2 * stoch_dim)
+        self.stoch_dim = self.prior.stoch_dim if cfg.stoch_cfg.stoch_dim else 0
+        self.determ_dim = cfg.determ_dim
+        self.latent_dim = cfg.determ_dim + self.stoch_dim
+        self.use_stoch = "posterior"
+        self.latent_dim_for_action = self.latent_dim
 
-        # decoder: [h_t, z_t] -> next scene
-        self.decoder_lin = torch.nn.Linear(determ_dim + stoch_dim, output_dim, bias=bias)
+    def init_latent(self, batch_size, obs=None):
+        self.hidden_state = self.rnn.init_latent(
+            obs if self._init_from_ == "obs" else batch_size
+        ).reshape(batch_size, -1)
 
-        # populated on every forward pass; read by the RSSM trainer for the KL
-        self.last_prior = None
-        self.last_posterior = None
-
-    def _dist(self, params):
-        """Build a diagonal Gaussian from concatenated (mean, raw_std) params."""
-        mean, std = torch.chunk(params, 2, dim=-1)
-        std = torch.nn.functional.softplus(std) + self.min_std
-        return torch.distributions.Normal(mean, std)
-
-    def _split_inputs(self, inputs):
-        """Split the concatenated pipeline input into (obs, action)."""
-        obs = inputs[..., :self.obs_dim]
-        action = inputs[..., self.obs_dim:]
-        return obs, action
-
-    def forward(self, inputs, hidden=None):
-        """Run the RSSM over a window and predict the next frame at each step.
-
-        Args:
-            inputs: Concatenated tensor [batch, time, obs_dim + action_dim].
-            hidden: Optional packed recurrent state [batch, determ_dim + stoch_dim]
-                    from the previous window (as returned by this method).
-
-        Returns:
-            Tuple of (outputs [batch, time, output_dim],
-                       all latent states [batch, time, determ_dim + stoch_dim],
-                       last latent state [batch, determ_dim + stoch_dim]).
-        """
-        obs, action = self._split_inputs(inputs)
-        batch, time, _ = obs.shape
-
-        if hidden is not None:
-            h = hidden[:, :self.determ_dim]
-            z = hidden[:, self.determ_dim:]
+        if self._init_with_ == "posterior":
+            self.prev_stoch = self.posterior.forward(
+                self.hidden_state, obs).stoch.reshape([batch_size, -1])
+        elif self.stoch_dim > 0:
+            self.prev_stoch = self.prior(self.hidden_state).stoch.reshape([batch_size, -1])
         else:
-            h = torch.zeros(batch, self.determ_dim, device=self.device)
-            z = torch.zeros(batch, self.stoch_dim, device=self.device)
+            self.prev_stoch = None
 
-        latents = []
-        prior_means, prior_stds = [], []
-        post_means, post_stds = [], []
+        return mytorch.concat([self.hidden_state, self.prev_stoch], dim=-1)
 
-        for t in range(time):
-            h = self.cell(torch.cat([z, action[:, t, ...]], dim=-1), h)
+    def set_prev_states(self, worlds: Worlds):
+        self.hidden_state = worlds.determ
+        self.prev_stoch = worlds.posterior.stoch
+        return torch.cat([self.hidden_state, self.prev_stoch], dim=-1)
 
-            prior = self._dist(self.prior_net(h))
-            embed = self.obs_encoder(obs[:, t, ...])
-            posterior = self._dist(self.post_net(torch.cat([h, embed], dim=-1)))
+    def detach(self):
+        """Detach recurrent states between truncated BPTT chunks."""
+        if hasattr(self, "hidden_state") and self.hidden_state is not None:
+            self.hidden_state = self.hidden_state.detach()
+        if hasattr(self, "prev_stoch") and self.prev_stoch is not None:
+            self.prev_stoch = self.prev_stoch.detach()
+        if hasattr(self.rnn, "detach"):
+            self.rnn.detach()
 
-            # sample during training, use the mean for deterministic analysis
-            z = posterior.rsample() if self.training else posterior.mean
+    def step(self, action, obs=None, timestep: int = 0) -> WorldStates:
+        determ_state = self.rnn(mytorch.concat(
+            [action, self.prev_stoch], dim=-1), self.hidden_state)
 
-            latents.append(torch.cat([h, z], dim=-1))
-            prior_means.append(prior.mean)
-            prior_stds.append(prior.stddev)
-            post_means.append(posterior.mean)
-            post_stds.append(posterior.stddev)
+        if self._is_vqrnn:
+            self.hidden_state, vq_loss = determ_state
+            loss_dict = {"vq_loss": vq_loss}
+        else:
+            self.hidden_state = determ_state
+            loss_dict = None
 
-        hidden_all = torch.stack(latents, dim=1)
-        outputs = self.decoder_lin(hidden_all)
+        if self.stoch_dim:
+            prior = self.prior(determ_state)
+            posterior = self.posterior(
+                determ_state, obs) if obs is not None else prior
+        else:
+            prior = NormalStoch()
+            posterior = NormalStoch()
+        states = WorldStates(determ_state, prior, posterior)
+        self.prev_stoch = states.posterior.stoch if obs is not None else states.prior.stoch
 
-        self.last_prior = torch.distributions.Normal(
-            torch.stack(prior_means, dim=1), torch.stack(prior_stds, dim=1)
-        )
-        self.last_posterior = torch.distributions.Normal(
-            torch.stack(post_means, dim=1), torch.stack(post_stds, dim=1)
-        )
+        return states, loss_dict
 
-        return outputs, hidden_all, hidden_all[:, -1, :]
+    def forward(self, action: torch.Tensor, embed_obs: torch.Tensor):
+        """
+        Args:
+            action: shape(T, B, D)
+            embed_obs: shape(T, B, D)
+
+        """
+
+        world_history = []
+        loss_history = []
+
+        for t in range(len(action)):
+            world_states, loss = self.step(action[t], embed_obs[t], t)
+            world_history.append(world_states)
+            loss_history.append(loss)
+        world_history = stack_worlds(world_history)
+        if self._is_vqrnn:
+            loss_history = stack_dicts(loss_history)
+        else:
+            loss_history = None
+
+        return world_history, loss_history
