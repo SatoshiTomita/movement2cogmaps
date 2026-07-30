@@ -2,8 +2,55 @@
 CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
   --architecture gru \
   --latent_dim 267 \
-  --name_prefix 0720_267dim \
+  --name_prefix 0724_267dim \
   --curriculum crawl,walk,run,adult \
   --env box_messy \
   --activity_transform halfshift \
   --wandb
+
+  CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
+  --architecture lstm \
+  --latent_dim 221 \
+  --name_prefix LSTM0726_lr=1e-4 \
+  --curriculum crawl,walk,run,adult \
+  --env box_messy \
+  --activity_transform halfshift \
+  --lr 1e-4 \
+  --wandb
+
+格子細胞を注入して学習(初期から)
+CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
+  --name_prefix 0727_gc_lr5e-5 \
+  --behaviour adult \
+  --env box_messy \
+  --reset_hidden_at 10 \
+  --n_gridcells 25 \
+  --gridcells_softmax \
+  --gridcells_modules 0.2,0.4,0.6 \
+  --gridcells_orientations 0.1 \
+  --lr 5e-5 \
+
+
+格子細胞を注入して学習(runから重みを引き継ぎして)
+CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
+  --name_prefix 0726_run_to_adult_gc \
+  --behaviour adult \
+  --env box_messy \
+  --pretrained_model_folder 'data/box/run/predictions/box_messy/vanilla/RNN_0716_run_ft_f1_w9_st10_fss4_do[0,0,0]_lat500_nlsigmoid_hreg0.0_wreg0.0_s01' \
+  --reset_hidden_at 10 \
+  --n_gridcells 25 \
+  --gridcells_softmax \
+  --gridcells_modules 0.2,0.4,0.6 \
+  --gridcells_orientations 0.1 \
+  --lr 1e-4 \
+
+CUDA_VISIBLE_DEVICES=2 .venv311/bin/python RNN_experiment.py \
+  --architecture lstm \
+  --latent_dim 221 \
+  --name_prefix LSTM0726_futurepred3 \
+  --curriculum crawl,walk,run,adult \
+  --env box_messy \
+  --activity_transform halfshift \
+  --n_future_pred 3 \
+  --wandb
+
