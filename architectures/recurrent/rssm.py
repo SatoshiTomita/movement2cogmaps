@@ -8,7 +8,119 @@ import torch.nn as nn
 from networks.distributions import Representation, Transition
 import networks.rnn as rnn
 
+class RSSMPredictor(nn.Module):
+    def __init__(self, obs_dim, action_dim, cfg: RSSMConfig):
+        """"
+         input:
+
+        """
+        super().__init__()
+        self.obs_dim = obs_dim
+        self.action_dim = action_dim
+
+        # 最初は観測を変換せず、そのままRSSMに入力する
+        self.encoder=nn.Identity()
+
+        # 潜在状態を更新するRSSM
+        self.rssm = RSSM(obs_dim=obs_dim, input_dim=action_dim, cfg=cfg)
+
+        # [h,z]から観測を再構成
+        self.decoder=nn.Linear(
+            in_features=self.rssm.latent_dim,
+            out_features=obs_dim,
+            bias=False
+        )
+
+    def forward(self,action:torch.Tensor,observation:torch.Tensor,state:torch.Tensor |None=None,initial_obs:torch.Tensor|None=None):
+        return self.observe(action,observation=observation,state=state,intial_obs=initial_obs)
+
+    def observe(self,action:torch.Tensor,observation:torch.Tensor,state:torch.Tensor|None=None,initial_obs:torch.Tensor|None=None):
+        """
+        Args:
+            action[B,T,action_dim]
+            observation[B,T,obs_dim]
+            state[B,latent_dim]
+            initial_obs[B,obs_dim]
+        
+        Returns:
+            outputs[B,T,obs_dim]
+            hidden_all[B,T,latent_dim]
+            hidden_last[B,latent_dim]
+        """
+
+        batch_size = action.shape[0]
+        # 最初の窓について
+        if state is None:
+            if initial_obs is None:
+                raise ValueError("initial_obs must be provided if state is None")
+
+            initial_embed=self.encoder(initial_obs)
+
+            self.rssm.init_latent(batch_size=batch_size,obs=initial_embed)
+        else:
+            if state.shape !=(
+                batch_size,
+                self.rssm.latent_dim
+            ):
+                raise ValueError(f"state shape must be {(batch_size,self.rssm.latent_dim)}, but got {state.shape}")
+
+            self.rssm.hidden_state=(
+                state[:,:self.rssm.determ_dim]
+            )
+
+            self.rssm.prev_stoch=(
+                state[:,self.rssm.determ_dim:]
+            )
+
+        # 観測を埋め込みへ変換
+        embed_obs = self.encoder(observation)
+
+        # actionとembed_obsの次元を入れ替える ([B,T,D]->[T,B,D])
+        action_tbd=action.transpose(0,1) 
+        embed_obs_tbd=embed_obs.transpose(0,1)
+
+        # rssmに通して潜在状態を計算する
+        # 
+        worlds,aux_loss=self.rssm(
+            action=action_tbd,
+            embed_obs=embed_obs_tbd,
+        )
+
+        # 決定論状態hとposteriorの確率状態zを最後の次元で結合
+        # [T,B,H]+[T,B,Z]→[T,B,H+Z]
+        latent_tbd = torch.cat(
+            [
+                worlds.determ,
+                worlds.posterior.stoch,
+            ],
+            dim=-1,
+        )
+
+        # decoderに通す[T,B,H+Z]→[T,B,obs_dim]
+        outputs_tbd=self.deoder(latent_tbd)
+
+        # [B,T,D]へ再び戻す
+        outputs=outputs_tbd.transpose(0,1)
+        hidden_all=latent_tbd.transpose(0,1)
+        hidden_last=latent_tbd[-1]
+
+        # observeで計算したprior,posterior,補助損失をRSSMPredictorの属性として保存
+        self.last_prior=worlds.prior
+        self.last_posterior=worlds.posterior
+        self.last_aux_loss=aux_loss
+
+        return outputs,hidden_all,hidden_last
+
+            
+
+
 class RSSM(nn.Module):
+    """
+      input:shape(B,T,scene_dim+action_dim)
+      output:
+        - world_history: shape(T, B, H+Z)
+        - loss_history
+    """
     def __init__(
         self,
         obs_dim: int,

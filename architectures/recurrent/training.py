@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-
+from utils.loss import LossFunctions
 from architectures.losses_custom import get_hidden_l2norm, get_weights_l2norm, rssm_kl_loss
 from architectures.training import Trainer
 
@@ -296,134 +296,53 @@ class TrainerRSSM(TrainerBPTT):
             self.optimizer.zero_grad()
 
             scene, vel, rot_vel, _, _, labels = data
+            # [1,B,T,O]->[B,T,O]
             scene = scene.squeeze(dim=0).to(self.device)
 
-            outputs_all = []
-            kl = 0.
-            for f in range(self.args.n_future_pred):
-                inputs = torch.cat((
-                    scene,
-                    vel.squeeze(dim=0)[:, f, ...].to(self.device),
-                    rot_vel.squeeze(dim=0)[:, f, ...].to(self.device)
-                ), dim=-1)
-
-                if f == 0:
-                    outputs, hidden_all, hidden_last = model(inputs, hidden_last)
-                    h = hidden_last.clone() if self.args.n_future_pred > 1 else None
-                else:
-                    outputs, _, h = model(inputs, h)
-                kl = kl + rssm_kl_loss(model.last_prior, model.last_posterior, self.args.free_nats)
-                outputs_all.append(outputs)
-                scene = outputs
-
-            outputs_all = torch.stack(outputs_all, dim=1)
-            labels = labels.squeeze(dim=0).to(self.device)
-
-            # IMPORTANT:RSSMでここで再構成誤差を計算する際に渡すのは、現在の時刻の画像であるべき
-            # このlabelsが現在の画像か、1ステップ先の画像化を確認する
-            recon_loss = self.loss_fn(outputs_all, labels)
-            kl_loss = kl / self.args.n_future_pred
-            kl_scaled = self.args.kl_scale * kl_loss
-
-            hidden_l2norm = get_hidden_l2norm(hidden_all)
-            hidden_reg_loss = self.args.hidden_reg * hidden_l2norm
-
-            weights_l2norm = get_weights_l2norm(model)
-            weights_reg_loss = self.args.weights_reg * weights_l2norm
-
-            loss = recon_loss + kl_scaled
-
-            return_dict = self._update_losses(
-                ['loss_train', 'kl_loss_train', 'hidden_reg_loss_train', 'weights_reg_loss_train', 'tot_loss_train'],
-                [recon_loss, kl_loss, hidden_reg_loss, weights_reg_loss, loss + hidden_reg_loss + weights_reg_loss],
-                return_dict
+            # [1,B,F,T,D]->[B,T,D]
+            velocity=(
+                vel.squeeze(dim=0)[:,0].to(self.device)
             )
-            if self.args.hidden_reg > 0:
-                loss += hidden_reg_loss
-            if self.args.weights_reg > 0:
-                loss += weights_reg_loss
 
-            loss.backward()
-            if self.args.clip_value is not None:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.clip_value)
-            self.optimizer.step()
-
-            return_dict = self._update_hidden_layer(
-                ['hidden_l2norm'], [hidden_l2norm], return_dict
+            rotational_velocity=(
+                rot_vel.squeeze(dim=0)[:,0].to(self.device)
             )
-            return_dict = self._update_norms(model, return_dict)
 
-            hidden_last = hidden_last.detach()
-            if self.args.reset_hidden_at is not None and i % self.args.reset_hidden_at == 0:
-                hidden_last = None
+            # RSSMへ渡す行動(行動をconcat)
+            # [B,T,velocity_dim+rotational_velocity_dim]
+            action=torch.vat(
+                [
+                    velocity,
+                    rotational_velocity,
+                ],
+                dim=1,
+            )
 
-        return_dict = {k: v / (i + 1) for k, v in return_dict.items()}
-        return model, return_dict
+            observation=(
+                labels.squeeze(dim=0)[:,0].to(self.device)
+            )
 
-    def test_epoch(self, model, dataloader, for_trajectory=False):
-        """Run one evaluation epoch, logging reconstruction and KL losses."""
-        model.eval()
-        loss_list = []
-        loss_wrt_input_list = []
-        distance_input_list = []
+            initial_obs=(
+                scene[:,0]
+                if hidden_last is None
+                else None
+            )
 
-        with torch.no_grad():
-            return_dict = {}
-            hidden_last = None
+            outputs,hidden,hidden_last=model.observe(
+                action=action,
+                observation=observation,
+                state=hidden_last,
+                initial_obs=initial_obs,
+            )
 
-            if for_trajectory:
-                hidden_activity, positions, thetas = [], [], []
+            print("========")
+            print("action:",action.shape)
+            print("observation:",observation.shape)
+            print("outputs:",outputs.shape)
+            print("hidden_all:",hidden_all.shape)
+            print("hidden_last:",hidden_last.shape)
+            print("========")
 
-            for i, tdata in enumerate(dataloader):
-                scene, vel, rot_vel, pos, thet, labels = tdata
-                inputs = torch.cat(
-                    (scene.squeeze(dim=0), vel.squeeze(dim=0)[:, 0, ...], rot_vel.squeeze(dim=0)[:, 0, ...]),
-                    dim=-1
-                ).to(self.device)
-                labels = labels.squeeze(dim=0)[:, 0, ...].to(self.device)
+            
 
-                outputs, hidden_all, hidden_last = model(inputs, hidden_last)
-                kl_loss = rssm_kl_loss(model.last_prior, model.last_posterior, self.args.free_nats)
-
-                loss = self.loss_fn(outputs, labels)
-                loss_wrt_input = self.loss_fn(outputs, scene.squeeze(dim=0).to(self.device))
-                distance_input = self.loss_fn(labels, scene.squeeze(dim=0).to(self.device))
-
-                loss_list.append(loss.detach().item())
-                loss_wrt_input_list.append(loss_wrt_input.detach().item())
-                distance_input_list.append(distance_input.detach().item())
-
-                hidden_l2norm = get_hidden_l2norm(hidden_all)
-                hidden_reg_loss = self.args.hidden_reg * hidden_l2norm
-
-                weights_l2norm = get_weights_l2norm(model)
-                weights_reg_loss = self.args.weights_reg * weights_l2norm
-
-                tot_loss = loss + self.args.kl_scale * kl_loss + hidden_reg_loss + weights_reg_loss
-                return_dict = self._update_losses(
-                    ['loss_test', 'kl_loss_test', 'loss_wrt_input', 'distance_input',
-                     'hidden_reg_loss_test', 'weights_reg_loss_test', 'tot_loss_test'],
-                    [loss, kl_loss, loss_wrt_input, distance_input,
-                     hidden_reg_loss, weights_reg_loss, tot_loss],
-                    return_dict
-                )
-
-                return_dict = self._update_hidden_layer(
-                    ['hidden_l2norm'], [hidden_l2norm], return_dict
-                )
-                return_dict = self._update_norms(model, return_dict)
-
-                hidden_last = hidden_last.detach()
-                if self.args.reset_hidden_at is not None and i % self.args.reset_hidden_at == 0:
-                    hidden_last = None
-
-                if for_trajectory:
-                    hidden_activity.append(hidden_all.detach().cpu().numpy())
-                    positions.append(pos.squeeze(dim=0)[:, 0, ...].cpu().numpy())
-                    thetas.append(thet.squeeze(dim=0)[:, 0, ...].cpu().numpy())
-
-            return_dict = {k: v / (i + 1) for k, v in return_dict.items()}
-
-        if for_trajectory:
-            return return_dict, hidden_activity, positions, thetas, loss_list, loss_wrt_input_list, distance_input_list
-        return return_dict
+            

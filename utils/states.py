@@ -5,7 +5,7 @@ from typing import Any, List, NamedTuple, Optional, Tuple, Union
 import numpy as np
 import torch
 import torch.distributions as D
-from src.utils.utils import mytorch
+from utils.utils import mytorch
 
 def stack_dicts(dicts: Tuple[dict, ...], dim: int = 0) -> dict:
     return {key: mytorch.stack([d[key] for d in dicts], dim=dim) for key in dicts[0]}
