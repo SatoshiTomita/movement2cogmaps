@@ -109,7 +109,6 @@ class TrainerBPTT(Trainer):
         # take the average over all batches and return the dictionary
         return_dict = {k: v/(i+1) for k, v in return_dict.items()}
         return model, return_dict
-    
 
     def test_epoch(self, model, dataloader, for_trajectory=False):
         """Run one evaluation epoch.
@@ -415,12 +414,161 @@ class TrainerRSSM(TrainerBPTT):
         }
 
         return model, return_dict
-        
 
+    def test_epoch(self, model, dataloader, for_trajectory=False):
+        """Run one RSSM evaluation epoch without updating model parameters."""
+        model.eval()
 
+        return_dict = {}
+        hidden_last = None
 
+        loss_list = []
+        loss_wrt_input_list = []
+        distance_input_list = []
 
+        if for_trajectory:
+            hidden_activity = []
+            positions = []
+            thetas = []
 
+        with torch.no_grad():
+            for i, data in enumerate(dataloader):
+                scene, vel, rot_vel, pos, thet, labels = data
 
+                # [1,B,T,obs_dim] -> [B,T,obs_dim]
+                scene = scene.squeeze(dim=0).to(self.device)
 
-            
+                # [1,B,F,T,vel_dim] -> [B,T,vel_dim]
+                velocity = (
+                    vel.squeeze(dim=0)[:, 0].to(self.device)
+                )
+
+                # [1,B,F,T,rot_vel_dim] -> [B,T,rot_vel_dim]
+                rotational_velocity = (
+                    rot_vel.squeeze(dim=0)[:, 0].to(self.device)
+                )
+
+                # [B,T,velocity_dim+rotational_velocity_dim]
+                action = torch.cat(
+                    [
+                        velocity,
+                        rotational_velocity,
+                    ],
+                    dim=-1,
+                )
+
+                # [1,B,F,T,obs_dim] -> [B,T,obs_dim]
+                observation = (
+                    labels.squeeze(dim=0)[:, 0].to(self.device)
+                )
+
+                initial_obs = (
+                    scene[:, 0]
+                    if hidden_last is None
+                    else None
+                )
+
+                outputs, hidden_all, hidden_last = model.observe(
+                    action=action,
+                    observation=observation,
+                    state=hidden_last,
+                    initial_obs=initial_obs,
+                )
+
+                recon_loss = self.loss_fn(
+                    outputs,
+                    observation,
+                )
+
+                kl_loss = LossFunctions.kl_vanilla(
+                    posterior=model.last_posterior,
+                    prior=model.last_prior,
+                )
+
+                if self.args.free_nats > 0:
+                    kl_loss = torch.clamp(
+                        kl_loss,
+                        min=self.args.free_nats,
+                    )
+
+                kl_scaled = self.args.kl_scale * kl_loss
+                loss = kl_scaled + recon_loss
+
+                # Compare the reconstruction with the observation before the
+                # action, and measure how much the target observation changed.
+                loss_wrt_input = self.loss_fn(
+                    outputs,
+                    scene,
+                )
+                distance_input = self.loss_fn(
+                    observation,
+                    scene,
+                )
+
+                return_dict = self._update_losses(
+                    [
+                        "loss_test",
+                        "kl_loss_test",
+                        "kl_scaled_test",
+                        "loss_wrt_input",
+                        "distance_input",
+                        "tot_loss_test",
+                    ],
+                    [
+                        recon_loss,
+                        kl_loss,
+                        kl_scaled,
+                        loss_wrt_input,
+                        distance_input,
+                        loss,
+                    ],
+                    return_dict,
+                )
+
+                loss_list.append(recon_loss.item())
+                loss_wrt_input_list.append(loss_wrt_input.item())
+                distance_input_list.append(distance_input.item())
+
+                hidden_last = hidden_last.detach()
+
+                if (
+                    self.args.reset_hidden_at is not None
+                    and (i + 1) % self.args.reset_hidden_at == 0
+                ):
+                    hidden_last = None
+
+                if for_trajectory:
+                    # hidden_all[:, t] represents the state after action[t],
+                    # whereas pos/thet[:, t] describe the pre-action scene.
+                    # Shift pos/thet by one and omit the final hidden state,
+                    # whose matching position lies outside this BPTT window.
+                    hidden_activity.append(
+                        hidden_all[:, :-1].detach().cpu().numpy()
+                    )
+                    positions.append(
+                        pos.squeeze(dim=0)[:, 0, 1:].cpu().numpy()
+                    )
+                    thetas.append(
+                        thet.squeeze(dim=0)[:, 0, 1:].cpu().numpy()
+                    )
+
+        if len(dataloader) == 0:
+            raise ValueError("Dataloader is empty.")
+
+        return_dict = {
+            key: value / len(dataloader)
+            for key, value in return_dict.items()
+        }
+
+        if for_trajectory:
+            return (
+                return_dict,
+                hidden_activity,
+                positions,
+                thetas,
+                loss_list,
+                loss_wrt_input_list,
+                distance_input_list,
+            )
+
+        return return_dict
