@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from utils.loss import LossFunctions
-from architectures.losses_custom import get_hidden_l2norm, get_weights_l2norm, rssm_kl_loss
+from architectures.losses_custom import get_hidden_l2norm, get_weights_l2norm
 from architectures.training import Trainer
 
 
@@ -296,28 +296,30 @@ class TrainerRSSM(TrainerBPTT):
             self.optimizer.zero_grad()
 
             scene, vel, rot_vel, _, _, labels = data
-            # [1,B,T,O]->[B,T,O]
+            # [1,B,T,obs_dim]->[B,T,obs_dim]
             scene = scene.squeeze(dim=0).to(self.device)
 
-            # [1,B,F,T,D]->[B,T,D]
+            # [1,B,F,T,vel_dim]->[B,T,vel_dim]
             velocity=(
                 vel.squeeze(dim=0)[:,0].to(self.device)
             )
 
+            # [1,B,F,T,rot_vel_dim]->[B,T,rot_vel_dim]
             rotational_velocity=(
                 rot_vel.squeeze(dim=0)[:,0].to(self.device)
             )
 
             # RSSMへ渡す行動(行動をconcat)
             # [B,T,velocity_dim+rotational_velocity_dim]
-            action=torch.vat(
+            action=torch.cat(
                 [
                     velocity,
                     rotational_velocity,
                 ],
-                dim=1,
+                dim=-1,
             )
 
+            # [1,B,F,T,obs_dim]->[B,T,obs_dim]
             observation=(
                 labels.squeeze(dim=0)[:,0].to(self.device)
             )
@@ -328,7 +330,7 @@ class TrainerRSSM(TrainerBPTT):
                 else None
             )
 
-            outputs,hidden,hidden_last=model.observe(
+            outputs,hidden_all,hidden_last=model.observe(
                 action=action,
                 observation=observation,
                 state=hidden_last,
@@ -343,6 +345,42 @@ class TrainerRSSM(TrainerBPTT):
             print("hidden_last:",hidden_last.shape)
             print("========")
 
-            
+            recon_loss=self.loss_fn(
+                outputs,
+                observation,
+            )
+
+            kl_loss=LossFunctions.kl_vanilla(
+                posterior=model.last_posterior,
+                prior=model.last_prior,
+            )
+
+            # free_natsが指定されている場合、KL損失をクリップする
+            if self.args.free_nats > 0:
+                kl_loss=torch.clamp(
+                    kl_loss,
+                    min=self.args.free_nats
+                )
+
+            # kl_scaleが指定されている際には、KL損失をスケーリングする
+            loss=self.args.kl_scale*kl_loss+recon_loss
+
+            loss.backward()
+
+            # 勾配クリッピング
+            if self.args.clip_value is not None:
+                torch.nn.utils.clip_grad_norm_(
+                    model.parameters(),
+                    self.args.clip_value,
+                )
+
+            # 重みを更新
+            self.optimizer.step()
+
+
+
+
+
+
 
             

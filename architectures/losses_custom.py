@@ -14,27 +14,6 @@ def get_weights_l2norm(model: torch.nn.Module) -> torch.Tensor:
     return sum(norms)
 
 
-def rssm_kl_loss(prior, posterior, free_nats: float = 3.0) -> torch.Tensor:
-    """KL divergence KL(posterior || prior) for the RSSM stochastic latent.
-
-    The KL is summed over the latent dimension and averaged over batch and
-    time, then clamped from below by ``free_nats`` (as in PlaNet/Dreamer) so
-    the model is not penalised for driving the KL below a small budget.
-
-    Args:
-        prior: ``torch.distributions.Normal`` over [batch, time, stoch_dim].
-        posterior: ``torch.distributions.Normal`` with matching shape.
-        free_nats: Lower bound (in nats) below which the KL is not penalised.
-
-    Returns:
-        Scalar KL loss tensor.
-    """
-    kl = torch.distributions.kl_divergence(posterior, prior).sum(dim=-1).mean()
-    if free_nats > 0:
-        kl = torch.clamp(kl, min=free_nats)
-    return kl
-
-
 class DiscountLoss(torch.nn.Module):
     """Applies an exponentially decaying discount to multi-step prediction losses.
 

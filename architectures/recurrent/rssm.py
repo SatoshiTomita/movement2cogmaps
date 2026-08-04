@@ -97,7 +97,7 @@ class RSSMPredictor(nn.Module):
         )
 
         # decoderに通す[T,B,H+Z]→[T,B,obs_dim]
-        outputs_tbd=self.deoder(latent_tbd)
+        outputs_tbd=self.decoder(latent_tbd)
 
         # [B,T,D]へ再び戻す
         outputs=outputs_tbd.transpose(0,1)
