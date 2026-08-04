@@ -363,7 +363,8 @@ class TrainerRSSM(TrainerBPTT):
                 )
 
             # kl_scaleが指定されている際には、KL損失をスケーリングする
-            loss=self.args.kl_scale*kl_loss+recon_loss
+            kl_scaled=self.args.kl_scale*kl_loss
+            loss=kl_scaled+recon_loss
 
             loss.backward()
 
@@ -376,6 +377,45 @@ class TrainerRSSM(TrainerBPTT):
 
             # 重みを更新
             self.optimizer.step()
+
+            # lossを記録
+            return_dict=self._update_losses(
+                [
+                    "loss_train",
+                    "kl_loss_train",
+                    "kl_scaled_train",
+                    "tot_loss_train",
+                ],
+                [
+                    recon_loss,
+                    kl_loss,
+                    kl_scaled,
+                    loss,
+                ],
+                return_dict,
+            )
+
+            # hidden_stateを切り離す
+            hidden_last=hidden_last.detach()
+
+            # 10個のBPTT窓ごとに隠れ状態をリセットする
+            if (
+                self.args.reset_hidden_at is not None
+                and (i + 1) % self.args.reset_hidden_at == 0
+            ):
+                hidden_last = None
+
+        if len(dataloader) ==0:
+            raise ValueError("Dataloader is empty.")
+
+        # reset_hidden_atで指定されたBPTT窓数ごとに隠れ状態をリセットする
+        return_dict={
+            key: value / len(dataloader)
+            for key, value in return_dict.items()
+        }
+
+        return model, return_dict
+        
 
 
 
