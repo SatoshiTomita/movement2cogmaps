@@ -251,3 +251,120 @@ class RSSM(nn.Module):
             loss_history = None
 
         return world_history, loss_history
+
+
+class MTRSSM(nn.Module):
+    def __init__(
+        self,
+        obs_dim: int,
+        input_dim: int,
+        cfg: MTRSSMConfig,
+        **kwargs,
+    ):
+        super().__init__()
+        self.temporal_abstraction = cfg.temporal_abstraction
+
+        self.low_level = RSSM(
+            obs_dim,
+            input_dim+(cfg.higher_cfg.stoch_cfg.stoch_dim *
+                       cfg.higher_cfg.stoch_cfg.n_class),
+            rnn_name="MTRNN",
+            **asdict(cfg.lower_cfg) if is_dataclass(cfg.lower_cfg) else cfg.lower_cfg
+        )
+        self.top_obs = cfg.top_obs
+        if cfg.top_obs == "both":
+
+            top_obs_dim = self.low_level.latent_dim
+        elif cfg.top_obs == "determ":
+            top_obs_dim = self.low_level.determ_dim
+        elif cfg.top_obs == "stoch":
+            top_obs_dim = self.low_level.stoch_dim
+
+        self.high_level = RSSM(
+            top_obs_dim,
+            0,
+            rnn_name="MTRNN",
+            **asdict(cfg.higher_cfg) if is_dataclass(cfg.higher_cfg) else cfg.higher_cfg
+        )
+        self.use_stoch = "posterior"
+
+        self.stoch_dim = self.low_level.stoch_dim
+        self.determ_dim = self.low_level.determ_dim
+        self.latent_dim = self.determ_dim + self.stoch_dim
+
+        self.higher_stoch_dim = self.high_level.stoch_dim
+        self.higher_determ_dim = self.high_level.determ_dim
+        self.higher_latent_dim = self.higher_determ_dim + self.higher_stoch_dim
+        self.latent_dim_for_action = self.latent_dim + self.higher_latent_dim
+
+    def init_latent(self, batch_size, obs=None):
+
+        # for i in range(self.layers):
+        # exec(f'obs = self.layer_{i}.init_latent(batch_size, obs)')
+        init_latent0 = self.low_level.init_latent(batch_size, obs)
+
+        if self.top_obs == "determ":
+            obs = self.low_level.hidden_state
+        elif self.top_obs == "stoch":
+            obs = obs
+        elif self.top_obs == "both":
+            obs = mytorch.concat([self.low_level.hidden_state, obs], dim=-1)
+        else:
+            raise NotImplementedError
+        init_latent1 = self.high_level.init_latent(batch_size, obs)
+        return torch.cat([init_latent0, init_latent1], dim=-1)
+
+    def set_prev_states(self, worlds: Worlds):
+
+        self.low_level.hidden_state = prev_determs[0]
+        self.low_level.prev_stoch = prev_determs[0]
+        self.high_level.hidden_state = prev_determs[1]
+        self.high_level.prev_stoch = prev_stochs[1]
+
+        return torch.cat([prev_determs[0], prev_determs[0], prev_determs[1], prev_determs[1]], dim=-1)
+
+    def step(self, action, obs=None, timestep: int = 0):
+        layers = []
+
+        inputs = mytorch.concat([action, self.high_level.prev_stoch], dim=-1)
+
+        world_states = self.low_level.step(inputs, obs)
+
+        layers.append(world_states)
+        obs = world_states.layer0.posterior.stoch if obs is not None else world_states.layer0.prior.stoch
+
+        if self.top_obs == "determ":
+            obs = world_states.determ
+        elif self.top_obs == "stoch":
+            obs = obs
+        elif self.top_obs == "both":
+            obs = mytorch.concat([world_states.layer0.determ, obs], dim=-1)
+        else:
+            raise NotImplementedError
+
+        if timestep % self.temporal_abstraction == 0:
+
+            world_states = self.high_level.step(None, obs)
+            layers.append(world_states)
+
+        # print(all_world_states.layer_1. is None)
+        return WorldStatesLayer(layers[0], layers[1])
+
+    def forward(self, action: torch.Tensor, embed_obs: torch.Tensor):
+        """
+        Args:
+            action: shape(T, B, D)
+            embed_obs: shape(T, B, D)
+
+        """
+
+        world_history = []
+
+        for t in range(len(action)):
+            world_states = self.step(action[t], embed_obs[t], t)
+
+            world_history.append(world_states)
+
+        world_history = stack_worlds(world_history)
+
+        return world_history
