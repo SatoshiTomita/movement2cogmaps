@@ -284,6 +284,13 @@ class TrainerRSSM(TrainerBPTT):
         device: Torch device.
     """
 
+    def _compute_kl_loss(self, model):
+        """Return the KL term used by the single-level RSSM."""
+        return LossFunctions.kl_vanilla(
+            posterior=model.last_posterior,
+            prior=model.last_prior,
+        )
+
     def train_epoch(self, model, dataloader):
         """Run one training epoch, adding the RSSM KL term to the loss."""
         model.train()
@@ -345,10 +352,7 @@ class TrainerRSSM(TrainerBPTT):
                 scene,
             )
 
-            kl_loss=LossFunctions.kl_vanilla(
-                posterior=model.last_posterior,
-                prior=model.last_prior,
-            )
+            kl_loss = self._compute_kl_loss(model)
 
             # free_natsが指定されている場合、KL損失をクリップする
             if self.args.free_nats > 0:
@@ -477,10 +481,7 @@ class TrainerRSSM(TrainerBPTT):
                     scene,
                 )
 
-                kl_loss = LossFunctions.kl_vanilla(
-                    posterior=model.last_posterior,
-                    prior=model.last_prior,
-                )
+                kl_loss = self._compute_kl_loss(model)
 
                 if self.args.free_nats > 0:
                     kl_loss = torch.clamp(
@@ -567,3 +568,24 @@ class TrainerRSSM(TrainerBPTT):
             )
 
         return return_dict
+
+
+class TrainerMTRSSM(TrainerRSSM):
+    """Train an MTRSSM with KL losses at both temporal levels."""
+
+    def _compute_kl_loss(self, model):
+        low_kl = LossFunctions.kl_vanilla(
+            posterior=model.last_posterior,
+            prior=model.last_prior,
+        )
+        if model.last_high_prior is None:
+            high_kl = low_kl.new_zeros(())
+        else:
+            high_kl = LossFunctions.kl_vanilla(
+                posterior=model.last_high_posterior,
+                prior=model.last_high_prior,
+            )
+
+        model.last_low_kl = low_kl
+        model.last_high_kl = high_kl
+        return low_kl + getattr(self.args, "high_kl_scale", 1.0) * high_kl

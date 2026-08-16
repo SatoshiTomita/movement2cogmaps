@@ -1,7 +1,7 @@
 import torch
 from utils.states import (CategoricStoch, NormalStoch, WorldStates, WorldStatesLayer,
                               CoarseWorldStates, Worlds, stack_worlds, stack_dicts)
-from utils.config import RSSMConfig
+from utils.config import MTRSSMConfig, RSSMConfig
 from dataclasses import asdict, is_dataclass
 from utils.utils import mytorch
 import torch.nn as nn

@@ -32,9 +32,9 @@ class RNNTrainer():
             model_name += f'_{args["behaviour"]}'
             return model_name
 
-        # RSSM: RNN-style suffix plus the stochastic-latent parameters
-        if architecture == 'rssm':
-            model_name = 'RSSM'
+        # RSSM variants: RNN-style suffix plus stochastic-latent parameters
+        if architecture in {'rssm', 'mtrssm'}:
+            model_name = architecture.upper()
             if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
             if args['pretrained_model_folder'] : model_name += '_ft'
             if args['reset_hidden_at'] is not None : model_name += f'_reset{args["reset_hidden_at"]}'
@@ -45,6 +45,13 @@ class RNNTrainer():
                 f'_kl{args["kl_scale"]}_fn{args["free_nats"]}'+
                 f'_hreg{args["hidden_reg"]}_wreg{args["weights_reg"]}_s{args["seed"]:02d}'
             )
+            if architecture == 'mtrssm':
+                model_name += (
+                    f'_hlat{args["higher_latent_dim"]}'
+                    f'_hstoch{args["higher_stoch_dim"]}'
+                    f'_ta{args["temporal_abstraction"]}'
+                    f'_tau{args["lower_tau"]}-{args["higher_tau"]}'
+                )
             return model_name
 
         model_name = f'RNN'
@@ -497,6 +504,70 @@ class RNNTrainer():
                 action_dim=vel_dim,
                 cfg=rssm_cfg,
             ).to(self.device)
+        elif getattr(self.args, 'architecture', 'rnn') == 'mtrssm':
+            if self.args.n_gridcells > 0:
+                raise NotImplementedError(
+                    "MTRSSM architecture does not support grid cells input"
+                )
+            from architectures.recurrent.mtrssm_training import MTRSSMPredictor
+            from utils.config import (
+                DistributionConfig,
+                MTRNNConfig,
+                MTRSSMConfig,
+                RSSMConfig,
+            )
+
+            if output_dim != scene_dim:
+                raise ValueError(
+                    "MTRSSM expects output_dim to match scene_dim, "
+                    f"but got output_dim={output_dim} and scene_dim={scene_dim}"
+                )
+
+            lower_cfg = RSSMConfig(
+                determ_dim=self.args.latent_dim,
+                stoch_cfg=DistributionConfig(
+                    stoch_dim=self.args.stoch_dim,
+                    hidden_dim=self.args.latent_dim,
+                    dist="normal",
+                    layers=1,
+                    activation="Mish",
+                ),
+                init_from_="obs",
+                init_with_="posterior",
+                rnn_name="MTRNN",
+                rnn_cfg=MTRNNConfig(
+                    tau=self.args.lower_tau,
+                    bias=bool(self.args.bias),
+                ),
+            )
+            higher_cfg = RSSMConfig(
+                determ_dim=self.args.higher_latent_dim,
+                stoch_cfg=DistributionConfig(
+                    stoch_dim=self.args.higher_stoch_dim,
+                    hidden_dim=self.args.higher_latent_dim,
+                    dist="normal",
+                    layers=1,
+                    activation="Mish",
+                ),
+                init_from_="obs",
+                init_with_="posterior",
+                rnn_name="MTRNN",
+                rnn_cfg=MTRNNConfig(
+                    tau=self.args.higher_tau,
+                    bias=bool(self.args.bias),
+                ),
+            )
+            mtrssm_cfg = MTRSSMConfig(
+                lower_cfg=lower_cfg,
+                higher_cfg=higher_cfg,
+                temporal_abstraction=self.args.temporal_abstraction,
+                top_obs=self.args.top_obs,
+            )
+            rnn = MTRSSMPredictor(
+                obs_dim=scene_dim,
+                action_dim=vel_dim,
+                cfg=mtrssm_cfg,
+            ).to(self.device)
         elif self.args.n_gridcells > 0:
             from architectures.recurrent_gridcells.rnn_bptt import RNN
             rnn = RNN(
@@ -547,6 +618,11 @@ class RNNTrainer():
         if getattr(self.args, 'architecture', 'rnn') == 'rssm':
             from architectures.recurrent.training import TrainerRSSM
             return TrainerRSSM(
+                self.args, optimizer, loss_fn, self.device
+            )
+        if getattr(self.args, 'architecture', 'rnn') == 'mtrssm':
+            from architectures.recurrent.training import TrainerMTRSSM
+            return TrainerMTRSSM(
                 self.args, optimizer, loss_fn, self.device
             )
 

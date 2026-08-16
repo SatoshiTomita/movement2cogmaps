@@ -248,8 +248,9 @@ if __name__ == '__main__':
         '--behaviour', type=str, default=None, # required unless --curriculum is used
         help="Behaviour group of the agent (crawl, walk, run, adult)")
     argparser.add_argument(
-        '--architecture', type=str, default='rnn', choices=['rnn', 'gru', 'lstm', 'rssm'],
-        help="Recurrent architecture to use (rnn, gru, lstm, or rssm). Default is rnn.")
+        '--architecture', type=str, default='rnn',
+        choices=['rnn', 'gru', 'lstm', 'rssm', 'mtrssm'],
+        help="Recurrent architecture (rnn, gru, lstm, rssm, or mtrssm).")
     argparser.add_argument(
         '--curriculum', type=list_of_strings, default=None,
         help="Comma-separated behaviours to train sequentially in a single run, "+\
@@ -314,6 +315,27 @@ if __name__ == '__main__':
     argparser.add_argument(
         '--free_nats', type=float, default=3.0,
         help="RSSM only: free-nats floor below which the KL is not penalised. Default is 3.0")
+    argparser.add_argument(
+        '--higher_latent_dim', type=int, default=128,
+        help="MTRSSM only: deterministic dimension of the slow level.")
+    argparser.add_argument(
+        '--higher_stoch_dim', type=int, default=16,
+        help="MTRSSM only: stochastic dimension of the slow level.")
+    argparser.add_argument(
+        '--temporal_abstraction', type=int, default=5,
+        help="MTRSSM only: number of low-level steps per slow-level update.")
+    argparser.add_argument(
+        '--lower_tau', type=float, default=2.0,
+        help="MTRSSM only: MTRNN time constant of the fast level.")
+    argparser.add_argument(
+        '--higher_tau', type=float, default=8.0,
+        help="MTRSSM only: MTRNN time constant of the slow level.")
+    argparser.add_argument(
+        '--top_obs', choices=['determ', 'stoch', 'both'], default='determ',
+        help="MTRSSM only: low-level state observed by the slow level.")
+    argparser.add_argument(
+        '--high_kl_scale', type=float, default=1.0,
+        help="MTRSSM only: relative weight of the slow-level KL term.")
     argparser.add_argument(
         '--lr', type=float, default=5e-5,
         help="Learning rate. Default is 5e-5")
