@@ -32,31 +32,42 @@ class RSSMPredictor(nn.Module):
         )
 
     def forward(self,action:torch.Tensor,observation:torch.Tensor,state:torch.Tensor |None=None,initial_obs:torch.Tensor|None=None):
-        return self.observe(action,observation=observation,state=state,intial_obs=initial_obs)
+        return self.observe(
+            action,
+            observation=observation,
+            state=state,
+            initial_obs=initial_obs,
+        )
 
     def observe(self,action:torch.Tensor,observation:torch.Tensor,state:torch.Tensor|None=None,initial_obs:torch.Tensor|None=None):
         """
         Args:
-            action[B,T,action_dim]
-            observation[B,T,obs_dim]
-            state[B,latent_dim]
-            initial_obs[B,obs_dim]
+            action[B,T,action_dim]: Transitions from time t to t+1.
+            observation[B,T,obs_dim]: Post-action observations at time t+1.
+            state[B,latent_dim]: State at the first, pre-action time t.
+            initial_obs[B,obs_dim]: Observation used to infer the first state
+                when no carried state is available.
         
         Returns:
-            outputs[B,T,obs_dim]
-            hidden_all[B,T,latent_dim]
-            hidden_last[B,latent_dim]
+            outputs[B,T,obs_dim]: Reconstructions at the pre-action times.
+            hidden_all[B,T,latent_dim]: States matching outputs in time.
+            hidden_last[B,latent_dim]: Final post-action state for carry-over.
         """
 
         batch_size = action.shape[0]
-        # 最初の窓について
+        # The decoder reconstructs the observation at the current state before
+        # applying action[t].  Keep that state separately from the T states
+        # produced by the T transitions below.
         if state is None:
             if initial_obs is None:
                 raise ValueError("initial_obs must be provided if state is None")
 
             initial_embed=self.encoder(initial_obs)
 
-            self.rssm.init_latent(batch_size=batch_size,obs=initial_embed)
+            current_latent = self.rssm.init_latent(
+                batch_size=batch_size,
+                obs=initial_embed,
+            )
         else:
             if state.shape !=(
                 batch_size,
@@ -71,6 +82,7 @@ class RSSMPredictor(nn.Module):
             self.rssm.prev_stoch=(
                 state[:,self.rssm.determ_dim:]
             )
+            current_latent = state
 
         # 観測を埋め込みへ変換
         embed_obs = self.encoder(observation)
@@ -86,9 +98,9 @@ class RSSMPredictor(nn.Module):
             embed_obs=embed_obs_tbd,
         )
 
-        # 決定論状態hとposteriorの確率状態zを最後の次元で結合
-        # [T,B,H]+[T,B,Z]→[T,B,H+Z]
-        latent_tbd = torch.cat(
+        # Each transition state corresponds to the observation after action[t]:
+        # [state_(t+1), ..., state_(t+T)].
+        next_latent_tbd = torch.cat(
             [
                 worlds.determ,
                 worlds.posterior.stoch,
@@ -96,13 +108,24 @@ class RSSMPredictor(nn.Module):
             dim=-1,
         )
 
+        # Reconstruct the pre-action observations from
+        # [state_t, ..., state_(t+T-1)].  The final transition state is retained
+        # only as the recurrent state carried into the next BPTT window.
+        reconstruction_latent_tbd = torch.cat(
+            [
+                current_latent.unsqueeze(0),
+                next_latent_tbd[:-1],
+            ],
+            dim=0,
+        )
+
         # decoderに通す[T,B,H+Z]→[T,B,obs_dim]
-        outputs_tbd=self.decoder(latent_tbd)
+        outputs_tbd=self.decoder(reconstruction_latent_tbd)
 
         # [B,T,D]へ再び戻す
         outputs=outputs_tbd.transpose(0,1)
-        hidden_all=latent_tbd.transpose(0,1)
-        hidden_last=latent_tbd[-1]
+        hidden_all=reconstruction_latent_tbd.transpose(0,1)
+        hidden_last=next_latent_tbd[-1]
 
         # observeで計算したprior,posterior,補助損失をRSSMPredictorの属性として保存
         self.last_prior=worlds.prior

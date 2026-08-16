@@ -5,7 +5,7 @@ import torch
 import torch.distributions as D
 import torch.nn as nn
 from networks.activations import Activation
-from utils.utils import ReTanh, re_tanh
+from utils.utils import mytorch
 # from vector_quantize_pytorch import LFQ
 
 

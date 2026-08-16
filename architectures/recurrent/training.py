@@ -318,6 +318,8 @@ class TrainerRSSM(TrainerBPTT):
                 dim=-1,
             )
 
+            # Post-action observations [o_(t+1), ..., o_(t+T)], used by
+            # posterior inference rather than as reconstruction targets.
             # [1,B,F,T,obs_dim]->[B,T,obs_dim]
             observation=(
                 labels.squeeze(dim=0)[:,0].to(self.device)
@@ -336,17 +338,11 @@ class TrainerRSSM(TrainerBPTT):
                 initial_obs=initial_obs,
             )
 
-            print("========")
-            print("action:",action.shape)
-            print("observation:",observation.shape)
-            print("outputs:",outputs.shape)
-            print("hidden_all:",hidden_all.shape)
-            print("hidden_last:",hidden_last.shape)
-            print("========")
-
+            # outputs and scene both represent the pre-action times
+            # [o_t, ..., o_(t+T-1)].
             recon_loss=self.loss_fn(
                 outputs,
-                observation,
+                scene,
             )
 
             kl_loss=LossFunctions.kl_vanilla(
@@ -457,6 +453,7 @@ class TrainerRSSM(TrainerBPTT):
                     dim=-1,
                 )
 
+                # Post-action observations for posterior inference.
                 # [1,B,F,T,obs_dim] -> [B,T,obs_dim]
                 observation = (
                     labels.squeeze(dim=0)[:, 0].to(self.device)
@@ -477,7 +474,7 @@ class TrainerRSSM(TrainerBPTT):
 
                 recon_loss = self.loss_fn(
                     outputs,
-                    observation,
+                    scene,
                 )
 
                 kl_loss = LossFunctions.kl_vanilla(
@@ -494,8 +491,8 @@ class TrainerRSSM(TrainerBPTT):
                 kl_scaled = self.args.kl_scale * kl_loss
                 loss = kl_scaled + recon_loss
 
-                # Compare the reconstruction with the observation before the
-                # action, and measure how much the target observation changed.
+                # The RSSM now reconstructs the pre-action observation at the
+                # same time index, so this metric is identical to recon_loss.
                 loss_wrt_input = self.loss_fn(
                     outputs,
                     scene,
@@ -538,18 +535,16 @@ class TrainerRSSM(TrainerBPTT):
                     hidden_last = None
 
                 if for_trajectory:
-                    # hidden_all[:, t] represents the state after action[t],
-                    # whereas pos/thet[:, t] describe the pre-action scene.
-                    # Shift pos/thet by one and omit the final hidden state,
-                    # whose matching position lies outside this BPTT window.
+                    # hidden_all[:, t], pos[:, t], and thet[:, t] now all
+                    # describe the same pre-action time index.
                     hidden_activity.append(
-                        hidden_all[:, :-1].detach().cpu().numpy()
+                        hidden_all.detach().cpu().numpy()
                     )
                     positions.append(
-                        pos.squeeze(dim=0)[:, 0, 1:].cpu().numpy()
+                        pos.squeeze(dim=0)[:, 0].cpu().numpy()
                     )
                     thetas.append(
-                        thet.squeeze(dim=0)[:, 0, 1:].cpu().numpy()
+                        thet.squeeze(dim=0)[:, 0].cpu().numpy()
                     )
 
         if len(dataloader) == 0:

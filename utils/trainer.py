@@ -468,13 +468,34 @@ class RNNTrainer():
         elif getattr(self.args, 'architecture', 'rnn') == 'rssm':
             if self.args.n_gridcells > 0:
                 raise NotImplementedError("RSSM architecture does not support grid cells input")
-            from architectures.recurrent.rssm import RSSM
-            rnn = RSSM(
-                self.device,
-                scene_dim, vel_dim, output_dim,
-                determ_dim = self.args.latent_dim,
-                stoch_dim = self.args.stoch_dim,
-                bias = self.args.bias,
+            from architectures.recurrent.rssm import RSSMPredictor
+            from utils.config import DistributionConfig, RNNConfig, RSSMConfig
+
+            if output_dim != scene_dim:
+                raise ValueError(
+                    "RSSM expects output_dim to match scene_dim, "
+                    f"but got output_dim={output_dim} and scene_dim={scene_dim}"
+                )
+
+            stoch_cfg = DistributionConfig(
+                stoch_dim=self.args.stoch_dim,
+                hidden_dim=self.args.latent_dim,
+                dist="normal",
+                layers=1,
+                activation="Mish",
+            )
+            rssm_cfg = RSSMConfig(
+                determ_dim=self.args.latent_dim,
+                stoch_cfg=stoch_cfg,
+                init_from_="obs",
+                init_with_="posterior",
+                rnn_name="GRU",
+                rnn_cfg=RNNConfig(bias=bool(self.args.bias)),
+            )
+            rnn = RSSMPredictor(
+                obs_dim=scene_dim,
+                action_dim=vel_dim,
+                cfg=rssm_cfg,
             ).to(self.device)
         elif self.args.n_gridcells > 0:
             from architectures.recurrent_gridcells.rnn_bptt import RNN
@@ -580,4 +601,3 @@ class RNNTrainer():
         np.save(os.path.join(self.exp_dir, 'loss_test.npy'), np.array(loss_test_list))
 
         return rnn
-    
