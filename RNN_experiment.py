@@ -296,6 +296,9 @@ if __name__ == '__main__':
         '--stride', type=int, default=10,
         help="Stride to subsample the data, which is usually at 10 Hz. Default is 10")
     argparser.add_argument(
+        '--num_workers', type=int, default=0,
+        help="Number of worker processes used by the data loaders. Default is 0")
+    argparser.add_argument(
         '--reset_hidden_at', type=int, default=None,
         help="How often to reset the hidden state of the RNN. Default is None, never reset.")
     argparser.add_argument(

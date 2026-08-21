@@ -378,7 +378,8 @@ class RNNTrainer():
                     positions, thetas,
                     self.args.bptt_steps, n_future_pred=self.args.n_future_pred
                 ),
-                shuffle=False
+                shuffle=False,
+                num_workers=self.args.num_workers,
             )
             if verbose:
                 print("\tDataloader length:", len(dataloader))
@@ -402,7 +403,8 @@ class RNNTrainer():
                 positions, thetas,
                 self.args.bptt_steps, n_future_pred=self.args.n_future_pred
             ),
-            shuffle=False
+            shuffle=False,
+            num_workers=self.args.num_workers,
         )
         if verbose:
             print("\tDataloader length:", len(dataloader))
