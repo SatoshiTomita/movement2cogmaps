@@ -307,8 +307,16 @@ if __name__ == '__main__':
         "deterministic (GRU) state size. Default is 500")
     argparser.add_argument(
         '--stoch_dim', type=int, default=32,
-        help="RSSM only: size of the stochastic latent z. The analysed latent "+\
-        "activity then has dimension latent_dim + stoch_dim. Default is 32")
+        help="RSSM/MTRSSM: number of stochastic variables. With a normal "
+        "latent, its flat size is stoch_dim; with a categorical latent, it is "
+        "stoch_dim * stoch_n_class. Default is 32.")
+    argparser.add_argument(
+        '--stoch_dist', choices=['normal', 'categorical'], default='normal',
+        help="RSSM/MTRSSM stochastic latent distribution. Default is normal.")
+    argparser.add_argument(
+        '--stoch_n_class', type=int, default=32,
+        help="Number of categories per stochastic variable when --stoch_dist "
+        "is categorical. Default is 32.")
     argparser.add_argument(
         '--kl_scale', type=float, default=1.0,
         help="RSSM only: weight of the KL(posterior || prior) term. Default is 1.0")
@@ -398,6 +406,9 @@ if __name__ == '__main__':
 
     if args.curriculum is None and args.behaviour is None:
         raise ValueError("Either --behaviour or --curriculum must be provided")
+
+    if args.stoch_dist == 'categorical' and args.stoch_n_class < 2:
+        raise ValueError("--stoch_n_class must be at least 2 for a categorical latent")
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)

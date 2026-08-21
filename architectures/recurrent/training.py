@@ -26,6 +26,21 @@ class TrainerBPTT(Trainer):
         super().__init__(optimizer, loss_fn, device)
         self.args = args
 
+    def _predict_plot_batch(self, model, tdata, hidden_last):
+        """Run one batch using the plain recurrent-model calling convention."""
+        scene, vel, rot_vel, _, _, labels = tdata
+        inputs = torch.cat(
+            (
+                scene.squeeze(dim=0),
+                vel.squeeze(dim=0)[:, 0, ...],
+                rot_vel.squeeze(dim=0)[:, 0, ...],
+            ),
+            dim=-1,
+        ).to(self.device)
+        labels = labels.squeeze(dim=0)[:, 0, ...]
+        outputs, _, hidden_last = model(inputs, hidden_last)
+        return inputs, labels, outputs, hidden_last
+
     def train_epoch(self, model, dataloader):
         """
         学習ループ
@@ -216,14 +231,9 @@ class TrainerBPTT(Trainer):
             figs = []
 
             for i, tdata in enumerate(dataloader):
-                scene, vel, rot_vel, _, _, labels = tdata
-                inputs = torch.cat(
-                    (scene.squeeze(dim=0), vel.squeeze(dim=0)[:, 0, ...], rot_vel.squeeze(dim=0)[:, 0, ...]),
-                    dim=-1
-                ).to(self.device)
-                labels = labels.squeeze(dim=0)[:, 0, ...]
-
-                outputs, _, hidden_last = model(inputs, hidden_last)
+                inputs, labels, outputs, hidden_last = self._predict_plot_batch(
+                    model, tdata, hidden_last
+                )
                 hidden_last = _detach_recurrent_state(hidden_last)
                 if self.args.reset_hidden_at is not None and i % self.args.reset_hidden_at == 0:
                     hidden_last = None
@@ -290,6 +300,30 @@ class TrainerRSSM(TrainerBPTT):
             posterior=model.last_posterior,
             prior=model.last_prior,
         )
+
+    def _predict_plot_batch(self, model, tdata, hidden_last):
+        """Run a plotting batch with the same alignment used for RSSM tests."""
+        scene, vel, rot_vel, _, _, labels = tdata
+        scene = scene.squeeze(dim=0).to(self.device)
+        action = torch.cat(
+            (
+                vel.squeeze(dim=0)[:, 0, ...],
+                rot_vel.squeeze(dim=0)[:, 0, ...],
+            ),
+            dim=-1,
+        ).to(self.device)
+        observation = labels.squeeze(dim=0)[:, 0, ...].to(self.device)
+
+        outputs, _, hidden_last = model.observe(
+            action=action,
+            observation=observation,
+            state=hidden_last,
+            initial_obs=scene[:, 0] if hidden_last is None else None,
+        )
+
+        # The plotting code expects the image channels first in ``inputs``.
+        inputs = torch.cat((scene, action), dim=-1)
+        return inputs, observation.cpu(), outputs, hidden_last
 
     def train_epoch(self, model, dataloader):
         """Run one training epoch, adding the RSSM KL term to the loss."""

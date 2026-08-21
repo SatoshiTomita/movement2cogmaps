@@ -61,8 +61,17 @@ class NormalStochNp:
         np.save(f"{dir}/stoch", self.stoch)
 
     def __getattr__(self, name):
+        try:
+            mean = object.__getattribute__(self, "mean")
+            std = object.__getattribute__(self, "std")
+            stoch = object.__getattribute__(self, "stoch")
+        except AttributeError:
+            # During pickle restoration the dataclass fields have not yet been
+            # assigned.  Report a genuinely missing attribute instead of
+            # recursively trying to delegate through another missing field.
+            raise AttributeError(name) from None
         return NormalStochNp(
-            getattr(self.mean, name), getattr(self.std, name), getattr(self.stoch, name)
+            getattr(mean, name), getattr(std, name), getattr(stoch, name)
         )
 
     def reshape(self, shape: list):
@@ -148,8 +157,14 @@ class NormalStoch:
         np.save(f"{dir}/stoch", self.stoch.detach().cpu().numpy())
 
     def __getattr__(self, name):
+        try:
+            mean = object.__getattribute__(self, "mean")
+            std = object.__getattribute__(self, "std")
+            stoch = object.__getattribute__(self, "stoch")
+        except AttributeError:
+            raise AttributeError(name) from None
         return NormalStoch(
-            getattr(self.mean, name), getattr(self.std, name), getattr(self.stoch, name)
+            getattr(mean, name), getattr(std, name), getattr(stoch, name)
         )
 
 
@@ -172,10 +187,16 @@ class CategoricStochNp:
         np.save(f"{dir}/stoch", self.stoch)
 
     def __getattr__(self, name):
+        try:
+            logits = object.__getattribute__(self, "logits")
+            probs = object.__getattribute__(self, "probs")
+            stoch = object.__getattribute__(self, "stoch")
+        except AttributeError:
+            raise AttributeError(name) from None
         return CategoricStochNp(
-            getattr(self.logits, name),
-            getattr(self.probs, name),
-            getattr(self.stoch, name),
+            getattr(logits, name),
+            getattr(probs, name),
+            getattr(stoch, name),
         )
 
     def reshape(self, shape: list):
@@ -277,10 +298,16 @@ class CategoricStoch:
         np.save(f"{dir}/stoch", self.stoch.detach().cpu().numpy())
 
     def __getattr__(self, name):
+        try:
+            logits = object.__getattribute__(self, "logits")
+            probs = object.__getattribute__(self, "probs")
+            stoch = object.__getattribute__(self, "stoch")
+        except AttributeError:
+            raise AttributeError(name) from None
         return CategoricStoch(
-            getattr(self.logits, name),
-            getattr(self.probs, name),
-            getattr(self.stoch, name),
+            getattr(logits, name),
+            getattr(probs, name),
+            getattr(stoch, name),
         )
 
 @dataclass(frozen=True)
@@ -374,10 +401,16 @@ class BernoulliStoch:
         np.save(f"{dir}/stoch", self.stoch.detach().cpu().numpy())
 
     def __getattr__(self, name):
+        try:
+            logits = object.__getattribute__(self, "logits")
+            probs = object.__getattribute__(self, "probs")
+            stoch = object.__getattribute__(self, "stoch")
+        except AttributeError:
+            raise AttributeError(name) from None
         return BernoulliStoch(
-            getattr(self.logits, name),
-            getattr(self.probs, name),
-            getattr(self.stoch, name),
+            getattr(logits, name),
+            getattr(probs, name),
+            getattr(stoch, name),
         )
 
 @dataclass(frozen=True)
@@ -399,8 +432,14 @@ class BernoulliStochNp:
         np.save(f"{dir}/stoch", self.stoch)
 
     def __getattr__(self, name):
+        try:
+            logits = object.__getattribute__(self, "logits")
+            probs = object.__getattribute__(self, "probs")
+            stoch = object.__getattribute__(self, "stoch")
+        except AttributeError:
+            raise AttributeError(name) from None
         return BernoulliStochNp(
-            getattr(self.logits, name), getattr(self.probs, name), getattr(self.stoch, name)
+            getattr(logits, name), getattr(probs, name), getattr(stoch, name)
         )
 
     def reshape(self, shape: list):
@@ -887,4 +926,3 @@ def stack_worlds(
         raise NotImplementedError
 
 Worlds = Union[WorldStates, CoarseWorldStates, WorldStatesLayer]
-

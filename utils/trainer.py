@@ -52,6 +52,8 @@ class RNNTrainer():
                     f'_ta{args["temporal_abstraction"]}'
                     f'_tau{args["lower_tau"]}-{args["higher_tau"]}'
                 )
+            if args.get('stoch_dist', 'normal') == 'categorical':
+                model_name += f'_cat{args["stoch_n_class"]}'
             return model_name
 
         model_name = f'RNN'
@@ -487,9 +489,14 @@ class RNNTrainer():
             stoch_cfg = DistributionConfig(
                 stoch_dim=self.args.stoch_dim,
                 hidden_dim=self.args.latent_dim,
-                dist="normal",
+                dist=self.args.stoch_dist,
                 layers=1,
                 activation="Mish",
+                n_class=(
+                    self.args.stoch_n_class
+                    if self.args.stoch_dist == "categorical"
+                    else 1
+                ),
             )
             rssm_cfg = RSSMConfig(
                 determ_dim=self.args.latent_dim,
@@ -528,9 +535,14 @@ class RNNTrainer():
                 stoch_cfg=DistributionConfig(
                     stoch_dim=self.args.stoch_dim,
                     hidden_dim=self.args.latent_dim,
-                    dist="normal",
+                    dist=self.args.stoch_dist,
                     layers=1,
                     activation="Mish",
+                    n_class=(
+                        self.args.stoch_n_class
+                        if self.args.stoch_dist == "categorical"
+                        else 1
+                    ),
                 ),
                 init_from_="obs",
                 init_with_="posterior",
@@ -545,9 +557,14 @@ class RNNTrainer():
                 stoch_cfg=DistributionConfig(
                     stoch_dim=self.args.higher_stoch_dim,
                     hidden_dim=self.args.higher_latent_dim,
-                    dist="normal",
+                    dist=self.args.stoch_dist,
                     layers=1,
                     activation="Mish",
+                    n_class=(
+                        self.args.stoch_n_class
+                        if self.args.stoch_dist == "categorical"
+                        else 1
+                    ),
                 ),
                 init_from_="obs",
                 init_with_="posterior",

@@ -1,8 +1,8 @@
 隠れ層の次元を267次元にしてGRUを学習
 CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
   --architecture gru \
-  --latent_dim 150 \
-  --name_prefix 0730_150dim \
+  --latent_dim 50 \
+  --name_prefix 0808_50dim \
   --curriculum crawl,walk,run,adult \
   --env box_messy \
   --activity_transform halfshift \
@@ -10,12 +10,11 @@ CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
 
   CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
   --architecture lstm \
-  --latent_dim 221 \
-  --name_prefix LSTM0726_lr=1e-4 \
+  --latent_dim 25 \
+  --name_prefix LSTM0806 \
   --curriculum crawl,walk,run,adult \
   --env box_messy \
   --activity_transform halfshift \
-  --lr 1e-4 \
   --wandb
 
  CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
