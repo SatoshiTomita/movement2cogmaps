@@ -11,7 +11,8 @@ from utils.config import (
     MTRNNConfig, CRSSMConfig, CRSSMV4Config,
     MTRSSMConfig, RSSMConfig, 
     Map2StatesConfig, MLPConfig)
-from utils.states import (CategoricStoch, NormalStoch, WorldStates, CoarseWorldStates, Worlds,
+from utils.states import (CategoricStoch, NormalStoch, WorldStates, WorldStatesLayer,
+                              CoarseWorldStates, Worlds,
                               stack_worlds, stack_dicts)
 from utils.utils import mytorch
 from networks.layers import Map2States, MLPLayer
@@ -138,12 +139,12 @@ class MTRSSM(nn.Module):
         super().__init__()
         self.temporal_abstraction = cfg.temporal_abstraction
 
+        # RSSMの現行コンストラクタはRSSMConfigを受け取るため、設定を展開せずそのまま渡す。
         self.low_level = RSSM(
             obs_dim,
             input_dim+(cfg.higher_cfg.stoch_cfg.stoch_dim *
                        cfg.higher_cfg.stoch_cfg.n_class),
-            rnn_name="MTRNN",
-            **asdict(cfg.lower_cfg) if is_dataclass(cfg.lower_cfg) else cfg.lower_cfg
+            cfg.lower_cfg,
         )
         self.top_obs = cfg.top_obs
         if cfg.top_obs == "both":
@@ -154,11 +155,11 @@ class MTRSSM(nn.Module):
         elif cfg.top_obs == "stoch":
             top_obs_dim = self.low_level.stoch_dim
 
+        # 上位層も下位層と同じRSSM APIで構築し、入力次元だけを上位観測に合わせる。
         self.high_level = RSSM(
             top_obs_dim,
             0,
-            rnn_name="MTRNN",
-            **asdict(cfg.higher_cfg) if is_dataclass(cfg.higher_cfg) else cfg.higher_cfg
+            cfg.higher_cfg,
         )
         self.use_stoch = "posterior"
 
@@ -172,17 +173,17 @@ class MTRSSM(nn.Module):
         self.latent_dim_for_action = self.latent_dim + self.higher_latent_dim
 
     def init_latent(self, batch_size, obs=None):
-
         # for i in range(self.layers):
         # exec(f'obs = self.layer_{i}.init_latent(batch_size, obs)')
         init_latent0 = self.low_level.init_latent(batch_size, obs)
 
+        # 上位層の初期状態は、初期化済みの下位h/zを観測として生成する。
         if self.top_obs == "determ":
             obs = self.low_level.hidden_state
         elif self.top_obs == "stoch":
-            obs = obs
+            obs = self.low_level.prev_stoch
         elif self.top_obs == "both":
-            obs = mytorch.concat([self.low_level.hidden_state, obs], dim=-1)
+            obs = mytorch.concat([self.low_level.hidden_state, self.low_level.prev_stoch], dim=-1)
         else:
             raise NotImplementedError
         init_latent1 = self.high_level.init_latent(batch_size, obs)
@@ -197,32 +198,45 @@ class MTRSSM(nn.Module):
 
         return torch.cat([prev_determs[0], prev_determs[0], prev_determs[1], prev_determs[1]], dim=-1)
 
+    def detach(self):
+        # WorldModelのBPTT窓の境界で、上下両方の再帰グラフを切り離す。
+        self.low_level.detach()
+        self.high_level.detach()
+
     def step(self, action, obs=None, timestep: int = 0):
         layers = []
 
+        # 下位層は行動に前時刻の上位確率状態を加え、上位文脈を使って更新する。
         inputs = mytorch.concat([action, self.high_level.prev_stoch], dim=-1)
-
-        world_states = self.low_level.step(inputs, obs)
-
+        world_states, _ = self.low_level.step(inputs, obs)
         layers.append(world_states)
-        obs = world_states.layer0.posterior.stoch if obs is not None else world_states.layer0.prior.stoch
 
+        obs = (
+            world_states.posterior.stoch
+            if obs is not None
+            else world_states.prior.stoch
+        )
         if self.top_obs == "determ":
             obs = world_states.determ
         elif self.top_obs == "stoch":
             obs = obs
         elif self.top_obs == "both":
-            obs = mytorch.concat([world_states.layer0.determ, obs], dim=-1)
+            obs = mytorch.concat([world_states.determ, obs], dim=-1)
         else:
             raise NotImplementedError
 
+        # 元の実装意図を保ち、上位層は指定された時間間隔でのみ更新する。
         if timestep % self.temporal_abstraction == 0:
+            empty_action = action.new_empty((action.shape[0], 0))
+            world_states, _ = self.high_level.step(
+                empty_action, obs
+            )
+            self._last_high_state = world_states
 
-            world_states = self.high_level.step(None, obs)
-            layers.append(world_states)
+        layers.append(self._last_high_state)
 
-        # print(all_world_states.layer_1. is None)
-        return WorldStatesLayer(layers[0], layers[1])
+        # WorldModelが要求する上下層の状態と補助損失の組を返す。
+        return WorldStatesLayer(layers[0], layers[1]), None
 
     def forward(self, action: torch.Tensor, embed_obs: torch.Tensor):
         """
@@ -235,13 +249,13 @@ class MTRSSM(nn.Module):
         world_history = []
 
         for t in range(len(action)):
-            world_states = self.step(action[t], embed_obs[t], t)
-
+            world_states, _ = self.step(action[t], embed_obs[t], t)
             world_history.append(world_states)
 
         world_history = stack_worlds(world_history)
 
-        return world_history
+        # WorldModelのdynamics.forward共通形式に合わせる。
+        return world_history, None
 
 class CRSSM(nn.Module):
     def __init__(

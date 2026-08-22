@@ -149,7 +149,13 @@ class WorldModel(LightningModuleBase):
 
         latent_states = world_states.latent_states 
 
-        predicted_obs, predicted_embed_obs = self._decode_obs(latent_states, embed_obs)
+        # MTRSSMの画像再構成には下位層のhとzだけを使用する。
+        decoder_states = (
+            world_states.layer0.latent_states
+            if isinstance(self.dynamics, MTRSSM)
+            else latent_states
+        )
+        predicted_obs, predicted_embed_obs = self._decode_obs(decoder_states, embed_obs)
 
         if self.obs_decoder.decode_edge:
             predicted_obs, predicted_edge = predicted_obs.split([3, 6], dim=-3)
@@ -405,4 +411,3 @@ class CoarseWorldModel(WorldModel):
             wld_loss["coarse_l0_norm"] = coarse_l0_norm.item()
 
         return wld_loss, pred_dict
-

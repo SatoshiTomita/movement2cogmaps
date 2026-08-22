@@ -482,117 +482,28 @@ class RNNTrainer():
                 dropouts = self.args.dropouts,
                 bias = self.args.bias,
             ).to(self.device)
-        # RSSMの場合
-        elif getattr(self.args, 'architecture', 'rnn') == 'rssm':
-            if self.args.n_gridcells > 0:
-                raise NotImplementedError("RSSM architecture does not support grid cells input")
-            from architectures.recurrent.rssm import RSSMPredictor
-            from utils.config import DistributionConfig, RNNConfig, RSSMConfig
-
-            if output_dim != scene_dim:
-                raise ValueError(
-                    "RSSM expects output_dim to match scene_dim, "
-                    f"but got output_dim={output_dim} and scene_dim={scene_dim}"
-                )
-
-            stoch_cfg = DistributionConfig(
-                stoch_dim=self.args.stoch_dim,
-                hidden_dim=self.args.latent_dim,
-                dist=self.args.stoch_dist,
-                layers=1,
-                activation="Mish",
-                n_class=(
-                    self.args.stoch_n_class
-                    if self.args.stoch_dist == "categorical"
-                    else 1
-                ),
-            )
-            rssm_cfg = RSSMConfig(
-                determ_dim=self.args.latent_dim,
-                stoch_cfg=stoch_cfg,
-                init_from_="obs",
-                init_with_="posterior",
-                rnn_name="GRU",
-                rnn_cfg=RNNConfig(bias=bool(self.args.bias)),
-            )
-            rnn = RSSMPredictor(
-                obs_dim=scene_dim,
-                action_dim=vel_dim,
-                cfg=rssm_cfg,
-            ).to(self.device)
-        elif getattr(self.args, 'architecture', 'rnn') == 'mtrssm':
+        elif getattr(self.args, 'architecture', 'rnn') in {'rssm', 'mtrssm'}:
             if self.args.n_gridcells > 0:
                 raise NotImplementedError(
-                    "MTRSSM architecture does not support grid cells input"
+                    f"{self.args.architecture.upper()} architecture does not "
+                    "support grid cells input"
                 )
-            from architectures.recurrent.mtrssm_training import MTRSSMPredictor
-            from utils.config import (
-                DistributionConfig,
-                MTRNNConfig,
-                MTRSSMConfig,
-                RSSMConfig,
-            )
-
-            if output_dim != scene_dim:
+            height = self.args.frame_dim[1] // self.args.frame_subsampling
+            width = self.args.frame_dim[0] // self.args.frame_subsampling
+            if output_dim != scene_dim or scene_dim != height * width:
                 raise ValueError(
-                    "MTRSSM expects output_dim to match scene_dim, "
-                    f"but got output_dim={output_dim} and scene_dim={scene_dim}"
+                    f"{self.args.architecture.upper()} expects flattened "
+                    f"grayscale frames with {height * width} features, got "
+                    f"scene_dim={scene_dim} and output_dim={output_dim}"
                 )
-
-            lower_cfg = RSSMConfig(
-                determ_dim=self.args.latent_dim,
-                stoch_cfg=DistributionConfig(
-                    stoch_dim=self.args.stoch_dim,
-                    hidden_dim=self.args.latent_dim,
-                    dist=self.args.stoch_dist,
-                    layers=1,
-                    activation="Mish",
-                    n_class=(
-                        self.args.stoch_n_class
-                        if self.args.stoch_dist == "categorical"
-                        else 1
-                    ),
-                ),
-                init_from_="obs",
-                init_with_="posterior",
-                rnn_name="MTRNN",
-                rnn_cfg=MTRNNConfig(
-                    tau=self.args.lower_tau,
-                    bias=bool(self.args.bias),
-                ),
+            from architectures.recurrent.world_model_training import (
+                build_world_model,
             )
-            higher_cfg = RSSMConfig(
-                determ_dim=self.args.higher_latent_dim,
-                stoch_cfg=DistributionConfig(
-                    stoch_dim=self.args.higher_stoch_dim,
-                    hidden_dim=self.args.higher_latent_dim,
-                    dist=self.args.stoch_dist,
-                    layers=1,
-                    activation="Mish",
-                    n_class=(
-                        self.args.stoch_n_class
-                        if self.args.stoch_dist == "categorical"
-                        else 1
-                    ),
-                ),
-                init_from_="obs",
-                init_with_="posterior",
-                rnn_name="MTRNN",
-                rnn_cfg=MTRNNConfig(
-                    tau=self.args.higher_tau,
-                    bias=bool(self.args.bias),
-                ),
-            )
-            mtrssm_cfg = MTRSSMConfig(
-                lower_cfg=lower_cfg,
-                higher_cfg=higher_cfg,
-                temporal_abstraction=self.args.temporal_abstraction,
-                top_obs=self.args.top_obs,
-            )
-            rnn = MTRSSMPredictor(
-                obs_dim=scene_dim,
+            rnn = build_world_model(
+                self.args,
+                architecture=self.args.architecture,
                 action_dim=vel_dim,
-                cfg=mtrssm_cfg,
+                frame_shape=(height, width),
             ).to(self.device)
         elif getattr(self.args, 'architecture', 'rnn') == 'crssmv4':
             if self.args.n_gridcells > 0:
@@ -662,14 +573,11 @@ class RNNTrainer():
 
     def define_bptt_trainer(self, optimizer, loss_fn):
         """BPTTの学習を行うためのTrainerクラスを定義する関数"""
-        if getattr(self.args, 'architecture', 'rnn') == 'rssm':
-            from architectures.recurrent.training import TrainerRSSM
-            return TrainerRSSM(
-                self.args, optimizer, loss_fn, self.device
+        if getattr(self.args, 'architecture', 'rnn') in {'rssm', 'mtrssm'}:
+            from architectures.recurrent.world_model_training import (
+                TrainerWorldModel,
             )
-        if getattr(self.args, 'architecture', 'rnn') == 'mtrssm':
-            from architectures.recurrent.training import TrainerMTRSSM
-            return TrainerMTRSSM(
+            return TrainerWorldModel(
                 self.args, optimizer, loss_fn, self.device
             )
         if getattr(self.args, 'architecture', 'rnn') == 'crssmv4':

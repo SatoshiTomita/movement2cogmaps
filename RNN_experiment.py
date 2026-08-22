@@ -368,7 +368,7 @@ if __name__ == '__main__':
         help="MTRSSM only: relative weight of the slow-level KL term.")
     argparser.add_argument(
         '--embed_obs_dim', type=int, default=150,
-        help="CRSSMV4 only: CNN observation embedding dimension.")
+        help="RSSM/MTRSSM/CRSSMV4: CNN observation embedding dimension.")
     argparser.add_argument(
         '--coarse_dim', type=int, default=128,
         help="CRSSMV4 only: deterministic coarse-state dimension.")
@@ -383,7 +383,7 @@ if __name__ == '__main__':
         help="CRSSMV4 only: L0 gate regularization weight.")
     argparser.add_argument(
         '--obs_std', type=float, default=1.0,
-        help="CRSSMV4 only: observation standard deviation for reconstruction.")
+        help="WorldModel observation standard deviation for reconstruction.")
     argparser.add_argument(
         '--lr', type=float, default=5e-5,
         help="Learning rate. Default is 5e-5")
