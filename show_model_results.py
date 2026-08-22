@@ -9,6 +9,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
+
 
 STAGES = ("crawl", "walk", "run", "adult")
 METRICS = (
@@ -30,12 +32,17 @@ CELL_COUNT_METRICS = {
 
 
 def canonical_model_name(name: str) -> str:
-    """Remove a development-stage suffix used in result directory names."""
+    """Normalize naming differences introduced by curriculum fine-tuning."""
     for stage in STAGES:
         suffix = f"_{stage}"
         if name.casefold().endswith(suffix):
-            return name[: -len(suffix)]
-    return name
+            name = name[: -len(suffix)]
+            break
+
+    # Curriculum steps after crawl are saved with an ``_ft`` marker even
+    # though they are stages of the same model. Group those directories with
+    # the initial crawl result.
+    return re.sub(r"_ft(?=_|$)", "", name, flags=re.IGNORECASE)
 
 
 def find_summaries(data_dir: Path) -> dict[str, dict[str, list[Path]]]:
@@ -58,8 +65,16 @@ def find_summaries(data_dir: Path) -> dict[str, dict[str, list[Path]]]:
         results[canonical_model_name(model_name)][stage].append(path)
 
     for stage_results in results.values():
-        for paths in stage_results.values():
+        for stage, paths in stage_results.items():
             paths.sort(key=lambda path: str(path))
+            stage_prefix = f"act_{stage}_"
+            matching_activity = [
+                path
+                for path in paths
+                if path.parent.name.casefold().startswith(stage_prefix)
+            ]
+            if matching_activity:
+                stage_results[stage] = matching_activity
     return dict(results)
 
 
@@ -93,13 +108,32 @@ def choose_model(query: str, model_names: list[str]) -> str | None:
         print(f"1〜{len(matches)} の番号を入力してください。")
 
 
+def latent_activity_dimension(summary_path: Path) -> int | None:
+    """Return the number of units that were actually spatially analysed."""
+    for filename in ("recurrent_activity.npy", "latent_activity.npy"):
+        activity_path = summary_path.with_name(filename)
+        if not activity_path.is_file():
+            continue
+        try:
+            activity = np.load(activity_path, mmap_mode="r")
+        except (OSError, ValueError):
+            continue
+        if activity.ndim > 0:
+            return int(activity.shape[-1])
+    return None
+
+
 def parse_summary(path: Path) -> dict[str, str]:
     """Read the requested metrics, supporting both summary formats in data/."""
     text = path.read_text(encoding="utf-8", errors="replace")
     dimension_match = re.search(
         r"^Latent space dimension is\s+(\d+)\s+neurons\s*$", text, re.MULTILINE
     )
-    total_units = int(dimension_match.group(1)) if dimension_match else None
+    # Prefer the saved activity that actually fed the cell analysis. Older
+    # results have only the complete latent activity, so retain that fallback.
+    total_units = latent_activity_dimension(path)
+    if total_units is None and dimension_match:
+        total_units = int(dimension_match.group(1))
     values: dict[str, str] = {}
     for display_name, source_names in METRICS:
         value = "—"

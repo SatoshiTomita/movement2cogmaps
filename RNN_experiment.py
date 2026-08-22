@@ -54,6 +54,18 @@ def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
         latent_activity_half2, positions_half2, thetas_half2
     ) = activiter.split_data(latent_activity, positions, thetas)
 
+    # Cell-like unit analyses use only deterministic recurrent states. Keep
+    # the complete latent state for representation-level decoding and sRSA.
+    recurrent_activity = activiter.select_recurrent_activity(
+        latent_activity, save_output=True
+    )
+    recurrent_activity_half1 = activiter.select_recurrent_activity(
+        latent_activity_half1
+    )
+    recurrent_activity_half2 = activiter.select_recurrent_activity(
+        latent_activity_half2
+    )
+
     print("\n[+] Calculating sRSA", end='', flush=True)
     s = time.time()
     sRSA = activiter.calculate_sRSA(latent_activity, positions)
@@ -61,22 +73,29 @@ def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
 
     # we now reshape everything because we don't care about seeds/experiments anymore
     latent_activity = latent_activity.reshape(-1, latent_activity.shape[-1])
+    recurrent_activity = recurrent_activity.reshape(
+        -1, recurrent_activity.shape[-1]
+    )
     positions = positions.reshape(-1, positions.shape[-1])
     thetas = thetas.reshape(-1, thetas.shape[-1]).squeeze()
-    print(f"\n[*] Reshaped data: {latent_activity.shape}, {positions.shape}, {thetas.shape}")
+    print(
+        f"\n[*] Reshaped full latent data: {latent_activity.shape}\n"
+        f"[*] Recurrent activity for cell analysis: {recurrent_activity.shape}\n"
+        f"[*] Position and HD data: {positions.shape}, {thetas.shape}"
+    )
 
     print("\n[+] Plotting trajectory heatmap")
 
     print("\n[+] Extracting RNN place activity from hidden units", flush=True)
     rate_maps, si_r, indices_place_cells, n_fields, rm_stability, rm_single_field_dim, rm_vs_hd, rm_vs_hd_stability = activiter.rnn_place_activity(
-        latent_activity, latent_activity_half1, latent_activity_half2,
+        recurrent_activity, recurrent_activity_half1, recurrent_activity_half2,
         positions, positions_half1, positions_half2,
         thetas
     )
 
     print("\n[+] Extracting RNN head direction activity from hidden units", flush=True)
     polar_maps, si_d, rvl, rvangle, indices_hd_cells, pm_stability, pm_vs_place, pm_vs_place_stability = activiter.rnn_hd_activity(
-        latent_activity, latent_activity_half1, latent_activity_half2,
+        recurrent_activity, recurrent_activity_half1, recurrent_activity_half2,
         thetas, thetas_half1, thetas_half2,
         positions
     )
@@ -421,12 +440,16 @@ if __name__ == '__main__':
         # Train each behaviour sequentially in a single run, carrying over the
         # weights from the previous step. Each step saves its own checkpoints.
         prev_exp_dir = None
+        requested_behaviour_act = args.behaviour_act
         for step_idx, behaviour in enumerate(args.curriculum):
             print(
                 f"\n\n########## CURRICULUM STEP {step_idx+1}/{len(args.curriculum)}: "
                 f"{behaviour} ##########\n"
             )
             args.behaviour = behaviour
+            # RNNActiviter resolves a missing behaviour_act in-place. Restore
+            # the original choice so the default follows each curriculum step.
+            args.behaviour_act = requested_behaviour_act
             if step_idx == 0:
                 # first step trains from scratch (unless user pinned a folder)
                 args.pretrained_behav = args.pretrained_behav

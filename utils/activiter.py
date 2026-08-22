@@ -115,6 +115,66 @@ class RNNActiviter():
                 f.write(f'{self.args.activity_transform}\n')
 
         return latent_activity, positions, thetas, vloss_dict
+
+    def select_recurrent_activity(self, latent_activity, save_output=False):
+        """Select deterministic recurrent states for cell-like unit analyses."""
+        architecture = getattr(self.args, 'architecture', 'rnn')
+
+        if architecture == 'rssm':
+            recurrent_activity = latent_activity[..., :self.args.latent_dim]
+            description = 'RSSM GRU deterministic state h'
+        elif architecture == 'mtrssm':
+            n_class = (
+                self.args.stoch_n_class
+                if self.args.stoch_dist == 'categorical'
+                else 1
+            )
+            low_h_end = self.args.latent_dim
+            low_z_end = low_h_end + self.args.stoch_dim * n_class
+            high_h_end = low_z_end + self.args.higher_latent_dim
+
+            fast_activity = latent_activity[..., :low_h_end]
+            slow_activity = latent_activity[..., low_z_end:high_h_end]
+            recurrent_activity = np.concatenate(
+                [fast_activity, slow_activity], axis=-1
+            )
+            description = 'MTRSSM fast and slow MTRNN deterministic states h'
+
+            if save_output:
+                np.save(
+                    os.path.join(self.exp_dir, 'recurrent_activity_fast.npy'),
+                    fast_activity,
+                )
+                np.save(
+                    os.path.join(self.exp_dir, 'recurrent_activity_slow.npy'),
+                    slow_activity,
+                )
+        else:
+            recurrent_activity = latent_activity
+            description = 'recurrent hidden state'
+
+        expected_dim = (
+            self.args.latent_dim + self.args.higher_latent_dim
+            if architecture == 'mtrssm'
+            else self.args.latent_dim
+        )
+        if recurrent_activity.shape[-1] != expected_dim:
+            raise ValueError(
+                f'Expected {expected_dim} recurrent units for {architecture}, '
+                f'but selected {recurrent_activity.shape[-1]}'
+            )
+
+        self.cell_activity_description = description
+        if save_output:
+            np.save(
+                os.path.join(self.exp_dir, 'recurrent_activity.npy'),
+                recurrent_activity,
+            )
+            with open(
+                os.path.join(self.exp_dir, 'cell_activity_source.txt'), 'w'
+            ) as f:
+                f.write(f'{description}\n')
+        return recurrent_activity
     
     def split_data(self, latent_activity, positions, thetas):
         # generate a meaningful split to calculate the cells stability later
@@ -294,15 +354,16 @@ class RNNActiviter():
         polar_maps, pm_vs_place, pm_vs_place_stability
     ):
         indices_conjunctive_cells = np.intersect1d(indices_pc, indices_hdc)
+        total_units = rate_maps.shape[0]
         
         if self.args.wandb:
             wandb.log({
                 WANDB_METRICS_PREFIX+'Perc place cells':\
-                    float(len(indices_pc)/self.args.latent_dim*100),
+                    float(len(indices_pc)/total_units*100),
                 WANDB_METRICS_PREFIX+'Perc HD cells':\
-                    float(len(indices_hdc)/self.args.latent_dim*100),
+                    float(len(indices_hdc)/total_units*100),
                 WANDB_METRICS_PREFIX+'Perc conjunctive cells':\
-                    float(len(indices_conjunctive_cells)/self.args.latent_dim*100),
+                    float(len(indices_conjunctive_cells)/total_units*100),
             })
 
         indices_place_cells = np.setdiff1d(indices_pc, indices_hdc)
@@ -424,7 +485,15 @@ class RNNActiviter():
         indices_cc,
     ):
         with open(os.path.join(self.exp_dir, f'summary.txt'), 'w') as f:
-            s = f'Latent space dimension is {self.args.latent_dim} neurons\n\n'
+            # n_fields has one entry for every recurrent unit included in the
+            # spatial cell analysis.
+            s = f'Latent space dimension is {len(n_fields)} neurons\n\n'
+            f.write(s)
+            print(s, end='')
+            description = getattr(
+                self, 'cell_activity_description', 'recurrent hidden state'
+            )
+            s = f'Cell activity source: {description}\n\n'
             f.write(s)
             print(s, end='')
             s = 'HD classification: SI/RVL thresholds\n\n'
@@ -518,4 +587,3 @@ class RNNActiviter():
             s = f'{np.nanmean(pm_vs_place_stability[indices_cc]):.2f} in conjunctive cells)\n' if len(indices_cc) > 0 else 'NA)\n'
             f.write(s)
             print(s, end='')
-
