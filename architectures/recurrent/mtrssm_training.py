@@ -76,8 +76,9 @@ class MTRSSMPredictor(MTRSSM):
         self.latent_dim_for_action = self.latent_dim + self.higher_latent_dim
 
         self.encoder = nn.Identity()
+        # 再構成の入力は下位層の決定的状態と確率的状態の両方で入力
         self.decoder = nn.Linear(
-            self.latent_dim_for_action,
+            self.latent_dim,
             obs_dim,
             bias=False,
         )
@@ -112,6 +113,16 @@ class MTRSSMPredictor(MTRSSM):
             ],
             dim=-1,
         )
+
+    def _decoder_state(self, packed_state: torch.Tensor) -> torch.Tensor:
+        """Select the low-level deterministic and stochastic decoder state."""
+        if packed_state.shape[-1] != self.latent_dim_for_action:
+            raise ValueError(
+                "packed state has an unexpected final dimension: "
+                f"expected {self.latent_dim_for_action}, "
+                f"got {packed_state.shape[-1]}"
+            )
+        return packed_state[..., :self.latent_dim]
 
     @staticmethod
     def _restore_mtrnn_internal_state(layer, determ_state):
@@ -216,10 +227,13 @@ class MTRSSMPredictor(MTRSSM):
         for offset in range(window_size):
             action_t = action_tbd[offset]
             next_obs_t = observation_tbd[offset]
+            # Combine the action with the slow stochastic context.
             low_input = torch.cat(
                 [action_t, self.high_level.prev_stoch],
                 dim=-1,
             )
+            # RSSM.step also supplies the previous low stochastic state and
+            # recurrent deterministic state to the fast MTRNN.
             low_state, _ = self.low_level.step(low_input, next_obs_t)
             low_priors.append(low_state.prior)
             low_posteriors.append(low_state.posterior)
@@ -242,7 +256,10 @@ class MTRSSMPredictor(MTRSSM):
             dim=0,
         )
 
-        outputs = self.decoder(reconstruction_latent_tbd).transpose(0, 1)
+        low_reconstruction_latent_tbd = self._decoder_state(
+            reconstruction_latent_tbd
+        )
+        outputs = self.decoder(low_reconstruction_latent_tbd).transpose(0, 1)
         hidden_all = reconstruction_latent_tbd.transpose(0, 1)
         hidden_last = next_latent_tbd[-1]
 
