@@ -268,8 +268,8 @@ if __name__ == '__main__':
         help="Behaviour group of the agent (crawl, walk, run, adult)")
     argparser.add_argument(
         '--architecture', type=str, default='rnn',
-        choices=['rnn', 'gru', 'lstm', 'rssm', 'mtrssm'],
-        help="Recurrent architecture (rnn, gru, lstm, rssm, or mtrssm).")
+        choices=['rnn', 'gru', 'lstm', 'rssm', 'mtrssm', 'crssmv4'],
+        help="Recurrent architecture (rnn, gru, lstm, rssm, mtrssm, or crssmv4).")
     argparser.add_argument(
         '--curriculum', type=list_of_strings, default=None,
         help="Comma-separated behaviours to train sequentially in a single run, "+\
@@ -366,6 +366,24 @@ if __name__ == '__main__':
     argparser.add_argument(
         '--high_kl_scale', type=float, default=1.0,
         help="MTRSSM only: relative weight of the slow-level KL term.")
+    argparser.add_argument(
+        '--embed_obs_dim', type=int, default=150,
+        help="CRSSMV4 only: CNN observation embedding dimension.")
+    argparser.add_argument(
+        '--coarse_dim', type=int, default=128,
+        help="CRSSMV4 only: deterministic coarse-state dimension.")
+    argparser.add_argument(
+        '--coarse_stoch_dim', type=int, default=16,
+        help="CRSSMV4 only: number of coarse stochastic variables.")
+    argparser.add_argument(
+        '--coarse_hidden_dim', type=int, default=128,
+        help="CRSSMV4 only: hidden dimension of the coarse transition.")
+    argparser.add_argument(
+        '--w_l0_norm', type=float, default=0.0,
+        help="CRSSMV4 only: L0 gate regularization weight.")
+    argparser.add_argument(
+        '--obs_std', type=float, default=1.0,
+        help="CRSSMV4 only: observation standard deviation for reconstruction.")
     argparser.add_argument(
         '--lr', type=float, default=5e-5,
         help="Learning rate. Default is 5e-5")

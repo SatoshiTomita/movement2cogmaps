@@ -460,6 +460,9 @@ class CRSSMV4(nn.Module):
                     self.coarse_state, 
                     obs if self.cfg.coarse_obs == "obs" else self.hidden_state)
             self.prev_c_stoch = c_posterior.stoch
+            # d_posterior = self.d_posterior(
+            #         self.hidden_state, 
+            #         obs) 
             d_posterior = self.posterior(
                     self.hidden_state, 
                     obs) 
@@ -501,6 +504,8 @@ class CRSSMV4(nn.Module):
         self.prev_stoch = self.prev_stoch.detach()
         self.coarse_state = self.coarse_state.detach()
         self.prev_c_stoch = self.prev_c_stoch.detach()
+        if hasattr(self.coarse_dyn, "hidden_state"):
+            self.coarse_dyn.hidden_state = self.coarse_dyn.hidden_state.detach()
         self.precise_dyn.detach()
         self.coarse_dyn.detach()
 
@@ -570,4 +575,3 @@ class CRSSMV4(nn.Module):
             loss_history = None
 
         return world_history, loss_history
-

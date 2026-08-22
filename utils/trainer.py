@@ -33,7 +33,7 @@ class RNNTrainer():
             return model_name
 
         # RSSM variants: RNN-style suffix plus stochastic-latent parameters
-        if architecture in {'rssm', 'mtrssm'}:
+        if architecture in {'rssm', 'mtrssm', 'crssmv4'}:
             model_name = architecture.upper()
             if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
             if args['pretrained_model_folder'] : model_name += '_ft'
@@ -51,6 +51,13 @@ class RNNTrainer():
                     f'_hstoch{args["higher_stoch_dim"]}'
                     f'_ta{args["temporal_abstraction"]}'
                     f'_tau{args["lower_tau"]}-{args["higher_tau"]}'
+                )
+            elif architecture == 'crssmv4':
+                model_name += (
+                    f'_emb{args["embed_obs_dim"]}'
+                    f'_coarse{args["coarse_dim"]}'
+                    f'_cstoch{args["coarse_stoch_dim"]}'
+                    f'_l0{args["w_l0_norm"]}'
                 )
             if args.get('stoch_dist', 'normal') == 'categorical':
                 model_name += f'_cat{args["stoch_n_class"]}'
@@ -587,6 +594,27 @@ class RNNTrainer():
                 action_dim=vel_dim,
                 cfg=mtrssm_cfg,
             ).to(self.device)
+        elif getattr(self.args, 'architecture', 'rnn') == 'crssmv4':
+            if self.args.n_gridcells > 0:
+                raise NotImplementedError(
+                    "CRSSMV4 architecture does not support grid cells input"
+                )
+            height = self.args.frame_dim[1] // self.args.frame_subsampling
+            width = self.args.frame_dim[0] // self.args.frame_subsampling
+            if output_dim != scene_dim or scene_dim != height * width:
+                raise ValueError(
+                    "CRSSMV4 expects flattened grayscale frames with "
+                    f"{height * width} features, got scene_dim={scene_dim} "
+                    f"and output_dim={output_dim}"
+                )
+            from architectures.recurrent.crssmv4_training import (
+                build_crssmv4_world_model,
+            )
+            rnn = build_crssmv4_world_model(
+                self.args,
+                action_dim=vel_dim,
+                frame_shape=(height, width),
+            ).to(self.device)
         elif self.args.n_gridcells > 0:
             from architectures.recurrent_gridcells.rnn_bptt import RNN
             rnn = RNN(
@@ -642,6 +670,11 @@ class RNNTrainer():
         if getattr(self.args, 'architecture', 'rnn') == 'mtrssm':
             from architectures.recurrent.training import TrainerMTRSSM
             return TrainerMTRSSM(
+                self.args, optimizer, loss_fn, self.device
+            )
+        if getattr(self.args, 'architecture', 'rnn') == 'crssmv4':
+            from architectures.recurrent.crssmv4_training import TrainerCRSSMV4
+            return TrainerCRSSMV4(
                 self.args, optimizer, loss_fn, self.device
             )
 

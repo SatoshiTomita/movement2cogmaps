@@ -4,8 +4,9 @@ import pytorch_lightning as pl
 import torch
 import torch.distributions as D
 import torch.nn as nn
+import torch.nn.functional as F
 from networks.activations import Activation
-from utils.utils import mytorch
+from utils.utils import ReTanh, mytorch, re_tanh
 # from vector_quantize_pytorch import LFQ
 
 
@@ -358,7 +359,6 @@ class MTRNNCell(CellBase):
 
 
     def init_latent(self, init_trigger, device=None):
-        print("init_trigger", init_trigger.shape)
         self.hidden = self.initialize(init_trigger)
 
         d = self.hidden

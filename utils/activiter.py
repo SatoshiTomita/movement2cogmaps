@@ -149,13 +149,42 @@ class RNNActiviter():
                     os.path.join(self.exp_dir, 'recurrent_activity_slow.npy'),
                     slow_activity,
                 )
+        elif architecture == 'crssmv4':
+            n_class = (
+                self.args.stoch_n_class
+                if self.args.stoch_dist == 'categorical'
+                else 1
+            )
+            precise_end = self.args.latent_dim
+            stochastic_end = precise_end + self.args.stoch_dim * n_class
+            precise_activity = latent_activity[..., :precise_end]
+            coarse_activity = latent_activity[
+                ..., stochastic_end:stochastic_end + self.args.coarse_dim
+            ]
+            recurrent_activity = np.concatenate(
+                [precise_activity, coarse_activity], axis=-1
+            )
+            description = 'CRSSMV4 precise GRU and coarse GateL0RD states'
+            if save_output:
+                np.save(
+                    os.path.join(self.exp_dir, 'recurrent_activity_precise.npy'),
+                    precise_activity,
+                )
+                np.save(
+                    os.path.join(self.exp_dir, 'recurrent_activity_coarse.npy'),
+                    coarse_activity,
+                )
         else:
             recurrent_activity = latent_activity
             description = 'recurrent hidden state'
 
         expected_dim = (
-            self.args.latent_dim + self.args.higher_latent_dim
-            if architecture == 'mtrssm'
+            self.args.latent_dim + (
+                self.args.higher_latent_dim
+                if architecture == 'mtrssm'
+                else self.args.coarse_dim
+            )
+            if architecture in {'mtrssm', 'crssmv4'}
             else self.args.latent_dim
         )
         if recurrent_activity.shape[-1] != expected_dim:
