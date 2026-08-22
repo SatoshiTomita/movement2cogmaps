@@ -1,149 +1,27 @@
-import torch
-from utils.states import (CategoricStoch, NormalStoch, WorldStates, WorldStatesLayer,
-                              CoarseWorldStates, Worlds, stack_worlds, stack_dicts)
-from utils.config import MTRSSMConfig, RSSMConfig,CRSSMConfig, CRSSMV4Config
+
 from dataclasses import asdict, is_dataclass
-from utils.utils import mytorch
-import torch.nn as nn
-from networks.distributions import Representation, Transition
+from typing import Dict, Tuple
+
 import networks.rnn as rnn
+import torch
+import torch.nn as nn
+from einops import rearrange
+from utils.config import (
+    DistributionConfig, GateL0RDConfig, 
+    MTRNNConfig, CRSSMConfig, CRSSMV4Config,
+    MTRSSMConfig, RSSMConfig, 
+    Map2StatesConfig, MLPConfig)
+from utils.states import (CategoricStoch, NormalStoch, WorldStates, CoarseWorldStates, Worlds,
+                              stack_worlds, stack_dicts)
+from utils.utils import mytorch
+from networks.layers import Map2States, MLPLayer
 
-class RSSMPredictor(nn.Module):
-    def __init__(self, obs_dim, action_dim, cfg: RSSMConfig):
-        """"
-         input:
+from networks.distributions import Representation, Transition
+import numpy as np
 
-        """
-        super().__init__()
-        self.obs_dim = obs_dim
-        self.action_dim = action_dim
-
-        # 最初は観測を変換せず、そのままRSSMに入力する
-        self.encoder=nn.Identity()
-
-        # 潜在状態を更新するRSSM
-        self.rssm = RSSM(obs_dim=obs_dim, input_dim=action_dim, cfg=cfg)
-
-        # [h,z]から観測を再構成
-        self.decoder=nn.Linear(
-            in_features=self.rssm.latent_dim,
-            out_features=obs_dim,
-            bias=False
-        )
-
-    def forward(self,action:torch.Tensor,observation:torch.Tensor,state:torch.Tensor |None=None,initial_obs:torch.Tensor|None=None):
-        return self.observe(
-            action,
-            observation=observation,
-            state=state,
-            initial_obs=initial_obs,
-        )
-
-    def observe(self,action:torch.Tensor,observation:torch.Tensor,state:torch.Tensor|None=None,initial_obs:torch.Tensor|None=None):
-        """
-        Args:
-            action[B,T,action_dim]: Transitions from time t to t+1.
-            observation[B,T,obs_dim]: Post-action observations at time t+1.
-            state[B,latent_dim]: State at the first, pre-action time t.
-            initial_obs[B,obs_dim]: Observation used to infer the first state
-                when no carried state is available.
-        
-        Returns:
-            outputs[B,T,obs_dim]: Reconstructions at the pre-action times.
-            hidden_all[B,T,latent_dim]: States matching outputs in time.
-            hidden_last[B,latent_dim]: Final post-action state for carry-over.
-        """
-
-        batch_size = action.shape[0]
-        # The decoder reconstructs the observation at the current state before
-        # applying action[t].  Keep that state separately from the T states
-        # produced by the T transitions below.
-        if state is None:
-            if initial_obs is None:
-                raise ValueError("initial_obs must be provided if state is None")
-
-            initial_embed=self.encoder(initial_obs)
-
-            current_latent = self.rssm.init_latent(
-                batch_size=batch_size,
-                obs=initial_embed,
-            )
-        else:
-            if state.shape !=(
-                batch_size,
-                self.rssm.latent_dim
-            ):
-                raise ValueError(f"state shape must be {(batch_size,self.rssm.latent_dim)}, but got {state.shape}")
-
-            self.rssm.hidden_state=(
-                state[:,:self.rssm.determ_dim]
-            )
-
-            self.rssm.prev_stoch=(
-                state[:,self.rssm.determ_dim:]
-            )
-            current_latent = state
-
-        # 観測を埋め込みへ変換
-        embed_obs = self.encoder(observation)
-
-        # actionとembed_obsの次元を入れ替える ([B,T,D]->[T,B,D])
-        action_tbd=action.transpose(0,1) 
-        embed_obs_tbd=embed_obs.transpose(0,1)
-
-        # rssmに通して潜在状態を計算する
-        # 
-        worlds,aux_loss=self.rssm(
-            action=action_tbd,
-            embed_obs=embed_obs_tbd,
-        )
-
-        # Each transition state corresponds to the observation after action[t]:
-        # [state_(t+1), ..., state_(t+T)].
-        next_latent_tbd = torch.cat(
-            [
-                worlds.determ,
-                worlds.posterior.stoch,
-            ],
-            dim=-1,
-        )
-
-        # Reconstruct the pre-action observations from
-        # [state_t, ..., state_(t+T-1)].  The final transition state is retained
-        # only as the recurrent state carried into the next BPTT window.
-        reconstruction_latent_tbd = torch.cat(
-            [
-                current_latent.unsqueeze(0),
-                next_latent_tbd[:-1],
-            ],
-            dim=0,
-        )
-
-        # decoderに通す[T,B,H+Z]→[T,B,obs_dim]
-        outputs_tbd=self.decoder(reconstruction_latent_tbd)
-
-        # [B,T,D]へ再び戻す
-        outputs=outputs_tbd.transpose(0,1)
-        hidden_all=reconstruction_latent_tbd.transpose(0,1)
-        hidden_last=next_latent_tbd[-1]
-
-        # observeで計算したprior,posterior,補助損失をRSSMPredictorの属性として保存
-        self.last_prior=worlds.prior
-        self.last_posterior=worlds.posterior
-        self.last_aux_loss=aux_loss
-
-        return outputs,hidden_all,hidden_last
-
-            
 
 
 class RSSM(nn.Module):
-    """
-      input:shape(B,T,scene_dim+action_dim)
-      output:
-        - world_history: shape(T, B, H+Z)
-        - loss_history
-    """
     def __init__(
         self,
         obs_dim: int,
@@ -196,15 +74,11 @@ class RSSM(nn.Module):
         self.hidden_state = worlds.determ
         self.prev_stoch = worlds.posterior.stoch
         return torch.cat([self.hidden_state, self.prev_stoch], dim=-1)
-
+    
     def detach(self):
-        """Detach recurrent states between truncated BPTT chunks."""
-        if hasattr(self, "hidden_state") and self.hidden_state is not None:
-            self.hidden_state = self.hidden_state.detach()
-        if hasattr(self, "prev_stoch") and self.prev_stoch is not None:
-            self.prev_stoch = self.prev_stoch.detach()
-        if hasattr(self.rnn, "detach"):
-            self.rnn.detach()
+        self.hidden_state = self.hidden_state.detach()
+        self.prev_stoch = self.prev_stoch.detach()
+        self.rnn.detach()
 
     def step(self, action, obs=None, timestep: int = 0) -> WorldStates:
         determ_state = self.rnn(mytorch.concat(
@@ -368,7 +242,6 @@ class MTRSSM(nn.Module):
         world_history = stack_worlds(world_history)
 
         return world_history
-
 
 class CRSSM(nn.Module):
     def __init__(

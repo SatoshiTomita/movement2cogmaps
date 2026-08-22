@@ -66,3 +66,34 @@ CUDA_VISIBLE_DEVICES=2 .venv311/bin/python RNN_experiment.py \
   --n_future_pred 3 \
   --wandb
 
+CUDA_VISIBLE_DEVICES=2 .venv311/bin/python RNN_experiment.py \
+  --architecture mtrssm \
+  --curriculum crawl,walk,run,adult \
+  --env box_messy \
+  --name_prefix mtrssm_0822 \
+  --latent_dim 120 \
+  --stoch_dim 8 \
+  --higher_latent_dim 19 \
+  --higher_stoch_dim 5 \
+  --stoch_dist categorical \
+  --stoch_n_class 32 \
+  --top_obs determ \
+  --temporal_abstraction 5 \
+  --lower_tau 2.0 \
+  --higher_tau 8.0 \
+  --n_future_pred 1 \
+  --bptt_steps 9 \
+  --stride 10 \
+  --kl_scale 1.0 \
+  --high_kl_scale 1.0 \
+  --free_nats 3.0 \
+  --lr 5e-5 \
+  --epochs 1500 \
+  --dropouts 0,0,0 \
+  --no-bias \
+  --hidden_reg 0.0 \
+  --weights_reg 0.0 \
+  --num_workers 8 \
+  --seed 1 \
+  --activity_transform identity \
+  --wandb
