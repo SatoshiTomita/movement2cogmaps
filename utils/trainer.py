@@ -426,6 +426,52 @@ class RNNTrainer():
                     print(f"\tlabels: {labels.shape}\n\tpositions: {pos.shape}\n\tthetas: {thet.shape}\n")
         return dataloader
 
+    def generate_lightning_world_dataloader(
+        self, video, velocity, rot_velocity, positions, thetas
+    ):
+        """Create long sequence batches consumed directly by WorldModel."""
+        from architectures.recurrent.datasets import WindowedPredictionDataset
+        from architectures.recurrent.lightning_training import (
+            WorldModelBatchCollator,
+        )
+
+        sequence_steps = self.args.bptt_steps * self.args.windows_per_lightning_batch
+        if self.args.bptt_steps < 1 or self.args.windows_per_lightning_batch < 1:
+            raise ValueError(
+                "bptt_steps and windows_per_lightning_batch must be positive"
+            )
+        height = self.args.frame_dim[1] // self.args.frame_subsampling
+        width = self.args.frame_dim[0] // self.args.frame_subsampling
+        loader_kwargs = {
+            "batch_size": 1,
+            "shuffle": False,
+            "num_workers": self.args.num_workers,
+            "pin_memory": torch.cuda.is_available(),
+            "collate_fn": WorldModelBatchCollator((height, width)),
+        }
+        if self.args.num_workers > 0:
+            loader_kwargs.update(
+                persistent_workers=True,
+                prefetch_factor=2,
+            )
+        dataset = WindowedPredictionDataset(
+            video,
+            velocity,
+            rot_velocity,
+            positions,
+            thetas,
+            sequence_steps,
+            n_future_pred=self.args.n_future_pred,
+        )
+        if len(dataset) == 0:
+            raise ValueError(
+                f"Sequence length {sequence_steps} is too long for this dataset"
+            )
+        return torch.utils.data.DataLoader(
+            dataset,
+            **loader_kwargs,
+        )
+
 
     def load_model_pretrained(self):
         import re

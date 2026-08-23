@@ -49,4 +49,7 @@ class WindowedPredictionDataset(Dataset):
 
     def __len__(self):
         """Number of non-overlapping windows available."""
-        return self.positions.shape[1] // self.window_size - self.n_future_pred
+        # 最後の未来ラベルまで確保できる完全なウィンドウ数を返す。
+        return (
+            self.positions.shape[1] - self.n_future_pred
+        ) // self.window_size

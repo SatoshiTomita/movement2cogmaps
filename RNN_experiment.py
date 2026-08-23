@@ -174,13 +174,23 @@ def main(args):
 
     print(f"\n[*] Defining dataloaders with {args.bptt_steps} BPTT steps and {args.n_future_pred} future predictions")
     if not args.activity_only:
-        # ここでdataloader_trainとdataloader_testを生成している
-        dataloader_train = trainer.generate_dataloader(
-            video_train, velocity_train, rot_velocity_train, positions_train, thetas_train, verbose=True
-        )
         dataloader_test = trainer.generate_dataloader(
             video_test, velocity_test, rot_velocity_test, positions_test, thetas_test
         )
+        if args.architecture in {'rssm', 'mtrssm'}:
+            lightning_train = trainer.generate_lightning_world_dataloader(
+                video_train, velocity_train, rot_velocity_train,
+                positions_train, thetas_train,
+            )
+            lightning_test = trainer.generate_lightning_world_dataloader(
+                video_test, velocity_test, rot_velocity_test,
+                positions_test, thetas_test,
+            )
+        else:
+            dataloader_train = trainer.generate_dataloader(
+                video_train, velocity_train, rot_velocity_train,
+                positions_train, thetas_train, verbose=True,
+            )
     dataloader_act = trainer.generate_dataloader(
         video_act, velocity_act, rot_velocity_act, positions_act, thetas_act
     )
@@ -222,8 +232,17 @@ def main(args):
             )
 
         print("\n[*] Training model...")
-        # ここでRNNの学習を行っている
-        rnn = trainer.train(rnn, bptt_trainer, dataloader_train, dataloader_test, lr_sched)
+        if args.architecture in {'rssm', 'mtrssm'}:
+            from architectures.recurrent.lightning_training import (
+                train_with_lightning,
+            )
+            rnn = train_with_lightning(
+                args, rnn, lightning_train, lightning_test, exp_dir
+            )
+        else:
+            rnn = trainer.train(
+                rnn, bptt_trainer, dataloader_train, dataloader_test, lr_sched
+            )
 
         figs = bptt_trainer.plot_test_examples(
             rnn, dataloader_test, n_figures=5, n_examples=6*5,
@@ -321,8 +340,12 @@ if __name__ == '__main__':
         '--reset_hidden_at', type=int, default=None,
         help="How often to reset the hidden state of the RNN. Default is None, never reset.")
     argparser.add_argument(
-        '--bptt_steps', type=int, default=9,
-        help="Number of steps to backpropagation through time. Default is 9")
+        '--bptt_steps', type=int, default=50,
+        help="Number of steps to backpropagation through time. Default is 50")
+    argparser.add_argument(
+        '--windows_per_lightning_batch', type=int, default=2,
+        help="WorldModel only: number of truncated BPTT windows grouped into "
+        "one Lightning batch. Default is 2.")
     argparser.add_argument(
         '--latent_dim', type=int, default=500,
         help="Latent dimension of the RNN. For the RSSM this is the "+\
@@ -355,11 +378,11 @@ if __name__ == '__main__':
         '--temporal_abstraction', type=int, default=5,
         help="MTRSSM only: number of low-level steps per slow-level update.")
     argparser.add_argument(
-        '--lower_tau', type=float, default=2.0,
-        help="MTRSSM only: MTRNN time constant of the fast level.")
+        '--lower_tau', type=float, default=4.0,
+        help="MTRSSM only: MTRNN time constant of the fast level. Default is 4.")
     argparser.add_argument(
-        '--higher_tau', type=float, default=8.0,
-        help="MTRSSM only: MTRNN time constant of the slow level.")
+        '--higher_tau', type=float, default=64.0,
+        help="MTRSSM only: MTRNN time constant of the slow level. Default is 64.")
     argparser.add_argument(
         '--top_obs', choices=['determ', 'stoch', 'both'], default='determ',
         help="MTRSSM only: low-level state observed by the slow level.")
