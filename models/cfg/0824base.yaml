@@ -1,0 +1,174 @@
+---
+_target_: src.utils.config.ExperimentConfig
+data_dir: 260516_mini
+seed: null
+log_every: 1
+embed_obs_dim: 128
+obs_shape: null
+action_dim: null
+alpha: null
+device: null
+activation: Mish
+chunk_size: 50
+
+idx_splitter:
+  _target_: src.utils.config.IndexConfig
+  num: 240
+  change_point: [60, 120, 180]
+  n_val_each: 1
+
+batch_size: 
+  _target_: src.utils.config.BatchSizeConfig
+  world: 35
+
+
+epochs:
+  _target_: src.utils.config.EpochConfig
+  world: 10000
+
+
+datamodule:
+  _target_: src.utils.config.DatasetConfig
+  seed: ${seed}
+  data_dir: ${data_dir}
+  chunk_size: ${chunk_size}
+  noise: true
+  data_length: 490
+  freeze_padding: 10
+
+world:
+  _target_: src.utils.config.WorldConfig
+  load_name: turtle-mini
+  obs_shape: ${obs_shape}
+  obs_dim: ${embed_obs_dim}
+  action_dim: ${action_dim}
+  alpha: ${alpha}
+  activation: ${activation}
+  contrastive_hidden: 128
+  contrastive_class: 128
+  contrastive_activation: 
+    activation: REReLU
+    reparametarize_fn: gelu
+  shared_decoder: true
+  use_vqvae: false
+  truncated: 50
+  action_transformation:
+    _target_: src.utils.config.SoftmaxTransConfig
+    vector: 16
+    sigma: 0.01
+    n_ignore: 0
+
+  dynamics_cfg:
+    _target_: src.utils.config.CRSSMV4Config
+    init_from_: obs
+    determ_dim: 128
+    precise_rnn: MTRNN
+    precise_cfg:
+      _target_: src.utils.config.MTRNNConfig
+      tau: 4
+      apply_tanh: false
+    stoch_cfg:
+      _target_: src.utils.config.DistributionConfig
+      stoch_dim: 8
+      hidden_dim: 128
+      dist: categorical
+      layers: 1
+      n_class: 8
+      activation: ${activation}
+      spherical: true
+
+    coarse_dim: 32
+    coarse_rnn: MTRNN
+    coarse_obs: determ
+    coarse_cfg:
+      _target_: src.utils.config.MTRNNConfig
+      tau: 64
+      return_gate: true
+      apply_tanh: false
+    coarse_stoch_cfg:
+      _target_: src.utils.config.DistributionConfig
+      stoch_dim: 4
+      hidden_dim: 128
+      dist: categorical
+      layers: 1
+      n_class: 4
+      activation: ${activation}
+      spherical: true
+
+  encoder_cfg:
+    _target_: src.utils.config.CNNConfig
+    channels: [16, 32, 64]
+    kernels: [3, 3, 3]
+    strides: [1, 2, 2]
+    paddings: [1, 1, 1]
+    hidden_activation: ${activation}
+    output_activation: ${activation}
+    batch_norm: false
+    spatial: false
+
+  decoder_cfg:
+    _target_: src.utils.config.ResNetConfig
+    conv_channel: 32
+    conv_padding:  1
+    final_padding:  1
+    conv_activation: ${activation}
+    mlp_activation: ${activation}
+    out_activation: Tanh
+    n_res_blocks:  8
+    batch_norm: false
+    upscale_factor: 2
+    n_upsampling: 2
+    init_channel: 16
+
+  c_decoder_cfg:
+    _target_: src.utils.config.MLPConfig
+    hidden_dim: 128
+    n_layers: 2
+    hidden_activation: ${activation}
+    output_activation: Tanh
+
+  loss_cfg:
+    embed_beta: 0.0
+    kl_balancing: 0.8
+    obs_std: 1
+    kl_beta: 1.0
+    free_nats: 0.1
+    use_ce: false
+    nce_balancing: false
+    early_stop: 1000
+    w_coarse_obs: 1.0
+    accuracy_metric: charbonnier
+    recon_coarse: false
+
+  optimizer_cfg:
+    name: RAdamScheduleFree
+    lr: 0.0006
+
+
+
+trainer:
+  _target_: src.utils.config.TrainerConfig
+  accelerator: gpu
+  devices:
+    - ${device}
+  deterministic: false
+  precision: 32
+  log_every_n_steps: 1
+  check_val_every_n_epoch: ${log_every}
+
+
+callbacks:
+# 修正点4:RichProgressBarをコメントアウト
+  # -
+    # _target_: src.utils.callbacks.RichProgressBar
+  
+  -
+    _target_: src.utils.callbacks.VisualizeReconstruction
+    save_every_n_epoch: 10
+    names: [prediction]
+
+  - 
+    _target_: src.utils.callbacks.LogOriginalImage
+
+  
+   
