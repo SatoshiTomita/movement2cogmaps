@@ -8,16 +8,16 @@ import torch.nn.functional as F
 import torch.nn as nn
 from einops import rearrange
 from omegaconf import DictConfig, OmegaConf
-from networks.activations import Activation
-from networks.base import LightningModuleBase
-from networks.dynamics import MTRSSM, RSSM, CRSSMV4, CRSSM
+from src.networks.activations import Activation
+from src.networks.base import LightningModuleBase
+from src.networks.dynamics import MTRSSM, RSSM, CRSSMV4, CRSSM
 
-from utils.states import cat_dicts, sum_dicts
-from networks.layers import (MLPLayer, States2Map1d, 
+from src.utils.states import cat_dicts, sum_dicts
+from src.networks.layers import (MLPLayer, States2Map1d, 
                                  States2Map2d, SoftmaxTransformation,
                                  Map2States)
-from networks.vision import Decoder, Encoder
-from utils.config import (
+from src.networks.vision import Decoder, Encoder
+from src.utils.config import (
     CRSSMV4Config,
     MTRSSMConfig,
     CRSSMConfig,
@@ -25,10 +25,10 @@ from utils.config import (
     WorldConfig,
 )
 
-from utils.loss import CalcFreeEnergy
-from utils.loss import LossFunctions as lf
-from utils.states import StochState, CoarseWorldStates, Worlds, get_dist
-from utils.utils import mytorch, HeavisideStepFnc
+from src.utils.loss import CalcFreeEnergy
+from src.utils.loss import LossFunctions as lf
+from src.utils.states import StochState, CoarseWorldStates, Worlds, get_dist
+from src.utils.utils import mytorch, HeavisideStepFnc
 
 
 class WorldModel(LightningModuleBase):
@@ -223,6 +223,7 @@ class WorldModel(LightningModuleBase):
             return None, None
 
 class CoarseWorldModel(WorldModel):
+    """損失計算・forward方法を定義する"""
     def __init__(
             self,
             cfg: WorldConfig,
