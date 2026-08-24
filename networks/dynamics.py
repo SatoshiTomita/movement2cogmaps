@@ -474,12 +474,12 @@ class CRSSMV4(nn.Module):
                     self.coarse_state, 
                     obs if self.cfg.coarse_obs == "obs" else self.hidden_state)
             self.prev_c_stoch = c_posterior.stoch
-            # d_posterior = self.d_posterior(
-            #         self.hidden_state, 
-            #         obs) 
-            d_posterior = self.posterior(
+            d_posterior = self.d_posterior(
                     self.hidden_state, 
                     obs) 
+            # d_posterior = self.posterior(
+            #         self.hidden_state, 
+            #         obs) 
             self.prev_stoch = d_posterior.stoch
         elif self.stoch_dim:
             self.prev_stoch = self.d_prior(self.hidden_state).stoch

@@ -132,29 +132,105 @@ class WorldModel(LightningModuleBase):
             wld_loss, embed_obs, pred_dict = self._train(batch)
             return wld_loss, pred_dict
 
-    def rollout(self, act_in: torch.Tensor, obs_in: torch.Tensor, init: bool = True) -> Tuple[Worlds, torch.Tensor, dict]:
+    def _current_latent(self) -> torch.Tensor:
+        """Return the recurrent state before the next action is applied."""
+        if isinstance(self.dynamics, MTRSSM):
+            return torch.cat(
+                [
+                    self.dynamics.low_level.hidden_state,
+                    self.dynamics.low_level.prev_stoch,
+                    self.dynamics.high_level.hidden_state,
+                    self.dynamics.high_level.prev_stoch,
+                ],
+                dim=-1,
+            )
+        if isinstance(self.dynamics, (CRSSM, CRSSMV4)):
+            states = [
+                self.dynamics.hidden_state,
+                self.dynamics.prev_stoch,
+                self.dynamics.coarse_state,
+            ]
+            if isinstance(self.dynamics, CRSSMV4):
+                states.append(self.dynamics.prev_c_stoch)
+            return torch.cat(states, dim=-1)
+        return torch.cat(
+            [self.dynamics.hidden_state, self.dynamics.prev_stoch], dim=-1
+        )
+
+    def rollout(
+        self,
+        act_in: torch.Tensor,
+        obs_in: torch.Tensor,
+        init: bool = True,
+        initial_obs: torch.Tensor = None,
+    ) -> Tuple[Worlds, torch.Tensor, dict]:
+        """Infer states aligned with ``obs_in`` after applying ``act_in``.
+
+        ``act_in[t]`` represents the transition from time ``t`` to ``t+1``
+        and ``obs_in[t]`` is the post-action observation at ``t+1``.  At the
+        start of a sequence, ``initial_obs`` supplies the pre-action
+        observation at time ``t`` used to initialize the recurrent state.
+
+        The optional argument keeps the older three-item WorldModel batch API
+        working for callers whose observations are not transition-aligned.
+        """
         embed_obs = self.obs_encoder(obs_in)
 
         if init:
-            self.dynamics.init_latent(embed_obs.shape[1], embed_obs[0])
+            initial_embed = (
+                self.obs_encoder(initial_obs)
+                if initial_obs is not None
+                else embed_obs[0]
+            )
+            self.dynamics.init_latent(embed_obs.shape[1], initial_embed)
 
+        # Keep the pre-action state for activity analyses, whose positions and
+        # headings are indexed by the current observations rather than labels.
+        self._rollout_start_latent = self._current_latent()
         world_states, loss_dict = self.dynamics.forward(act_in, embed_obs)
         return world_states, embed_obs, loss_dict
 
     def _train(self, batch: tuple, init: bool = True):
 
-        act_in, obs_in, obs_target = batch
+        if len(batch) == 3:
+            act_in, obs_in, obs_target = batch
+            initial_obs = None
+        elif len(batch) == 4:
+            act_in, obs_in, obs_target, initial_obs = batch
+        else:
+            raise ValueError(
+                "WorldModel batches must contain action, observation, target, "
+                "and optionally the initial pre-action observation"
+            )
 
-        world_states, embed_obs, loss_dict = self.rollout(act_in, obs_in, init)
+        world_states, embed_obs, loss_dict = self.rollout(
+            act_in,
+            obs_in,
+            init,
+            initial_obs=initial_obs,
+        )
 
         latent_states = world_states.latent_states 
-
-        # MTRSSMの画像再構成には下位層のhとzだけを使用する。
-        decoder_states = (
-            world_states.layer0.latent_states
-            if isinstance(self.dynamics, MTRSSM)
-            else latent_states
+        current_latent_states = torch.cat(
+            [self._rollout_start_latent.unsqueeze(0), latent_states[:-1]],
+            dim=0,
         )
+
+        # Reconstruct o_t from the state at t.  The transition states returned
+        # above are [s_(t+1), ..., s_(t+T)], so prepend the pre-action state and
+        # drop the final transition state.  MTRSSM image reconstruction uses
+        # only the lower-level h/z portion of that aligned state history.
+        if isinstance(self.dynamics, MTRSSM):
+            lower_dim = self.dynamics.latent_dim
+            decoder_states = torch.cat(
+                [
+                    self._rollout_start_latent[..., :lower_dim].unsqueeze(0),
+                    world_states.layer0.latent_states[:-1],
+                ],
+                dim=0,
+            )
+        else:
+            decoder_states = current_latent_states
         predicted_obs, predicted_embed_obs = self._decode_obs(decoder_states, embed_obs)
 
         if self.obs_decoder.decode_edge:
@@ -207,6 +283,7 @@ class WorldModel(LightningModuleBase):
             prediction=predicted_obs,
             predicted_embed_obs=predicted_embed_obs,
             latent_states=latent_states,
+            analysis_latent_states=current_latent_states,
             world_states=world_states,
         )
 

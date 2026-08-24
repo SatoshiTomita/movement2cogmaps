@@ -528,6 +528,28 @@ class RNNTrainer():
                 dropouts = self.args.dropouts,
                 bias = self.args.bias,
             ).to(self.device)
+        elif (
+            getattr(self.args, 'architecture', 'rnn') == 'rssm'
+            and getattr(self.args, 'rssm_predictor', False)
+        ):
+            if self.args.n_gridcells > 0:
+                raise NotImplementedError(
+                    "RSSMPredictor does not support grid cells input"
+                )
+            from architectures.recurrent.rssm import RSSMPredictor
+            from architectures.recurrent.world_model_training import _rssm_config
+
+            cfg = _rssm_config(
+                self.args,
+                self.args.latent_dim,
+                self.args.stoch_dim,
+                "GRU",
+            )
+            rnn = RSSMPredictor(
+                obs_dim=scene_dim,
+                action_dim=vel_dim,
+                cfg=cfg,
+            ).to(self.device)
         elif getattr(self.args, 'architecture', 'rnn') in {'rssm', 'mtrssm'}:
             if self.args.n_gridcells > 0:
                 raise NotImplementedError(
@@ -619,6 +641,14 @@ class RNNTrainer():
 
     def define_bptt_trainer(self, optimizer, loss_fn):
         """BPTTの学習を行うためのTrainerクラスを定義する関数"""
+        if (
+            getattr(self.args, 'architecture', 'rnn') == 'rssm'
+            and getattr(self.args, 'rssm_predictor', False)
+        ):
+            from architectures.recurrent.training import TrainerRSSM
+            return TrainerRSSM(
+                self.args, optimizer, loss_fn, self.device
+            )
         if getattr(self.args, 'architecture', 'rnn') in {'rssm', 'mtrssm'}:
             from architectures.recurrent.world_model_training import (
                 TrainerWorldModel,

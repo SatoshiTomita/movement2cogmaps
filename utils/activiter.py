@@ -31,6 +31,11 @@ class RNNActiviter():
 
     def redefine_exp_dir(self):
         dir_name = f"act_{self.args.behaviour_act}_epoch{self.args.epoch_act}"
+        lstm_activity_state = getattr(
+            self.args, 'lstm_activity_state', 'hidden'
+        )
+        if self.args.architecture == 'lstm' and lstm_activity_state != 'hidden':
+            dir_name += f"_{lstm_activity_state}"
         if self.args.activity_transform != 'identity':
             # GRUの活性化関数はtanhで出力が負になる可能性がある
             # softplusを使用することで非負の活性化関数を使用する
@@ -174,6 +179,17 @@ class RNNActiviter():
                     os.path.join(self.exp_dir, 'recurrent_activity_coarse.npy'),
                     coarse_activity,
                 )
+        elif architecture == 'lstm':
+            recurrent_activity = latent_activity
+            lstm_activity_state = getattr(
+                self.args, 'lstm_activity_state', 'hidden'
+            )
+            descriptions = {
+                'hidden': 'LSTM hidden/output state h_t = o_t * tanh(c_t)',
+                'tanh_cell': 'LSTM exposed cell state tanh(c_t)',
+                'cell': 'LSTM raw cell state c_t',
+            }
+            description = descriptions[lstm_activity_state]
         else:
             recurrent_activity = latent_activity
             description = 'recurrent hidden state'

@@ -38,6 +38,11 @@ def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
         '''
     )
 
+    # Analysis-only runs may target an existing experiment whose generated
+    # directory name cannot be reproduced byte-for-byte from argparse values
+    # (for example ``[0,0,0]`` is parsed back as ``[0.0,0.0,0.0]``).  In that
+    # case, load directly from the explicitly supplied checkpoint directory.
+    exp_dir = getattr(trainer.get_args(), 'activity_model_folder', None) or exp_dir
     model_name = trainer.get_model_name()
     activiter = RNNActiviter(trainer.get_args(), DATA_DIR, DEVICE, model_name, exp_dir)
 
@@ -290,6 +295,9 @@ if __name__ == '__main__':
         choices=['rnn', 'gru', 'lstm', 'rssm', 'mtrssm', 'crssmv4'],
         help="Recurrent architecture (rnn, gru, lstm, rssm, mtrssm, or crssmv4).")
     argparser.add_argument(
+        '--rssm_predictor', action=argparse.BooleanOptionalAction, default=False,
+        help="Use the legacy RSSMPredictor implementation (for compatible checkpoints).")
+    argparser.add_argument(
         '--curriculum', type=list_of_strings, default=None,
         help="Comma-separated behaviours to train sequentially in a single run, "+\
         "carrying over weights from one step to the next. Example: crawl,walk,run. "+\
@@ -443,6 +451,16 @@ if __name__ == '__main__':
     argparser.add_argument(
         '--activity_only', action=argparse.BooleanOptionalAction,
         help="Whether to only run the activity part of the code. Default to False, i.e. train and then run activity.")
+    argparser.add_argument(
+        '--activity_model_folder', type=str, default=None,
+        help="Existing model directory containing rnn_epoch*.pth. Used only "
+             "as the checkpoint source for activity analysis, avoiding model-name "
+             "reconstruction from CLI arguments.")
+    argparser.add_argument(
+        '--lstm_activity_state',
+        choices=['hidden', 'tanh_cell', 'cell'],
+        default='hidden',
+        help="LSTM state used for activity analyses: h_t, tanh(c_t), or raw c_t.")
     argparser.add_argument(
         '--ratemap_norm', type=str, default='minmax',
         help="How to normalize rate maps (minmax or sum). Default to minmax.")

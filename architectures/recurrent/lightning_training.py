@@ -10,7 +10,14 @@ from utils.utils import get_optimizer
 
 
 class WorldModelBatchCollator:
-    """Convert the recurrent dataset output to the WorldModel batch format."""
+    """Convert recurrent samples to transition-aligned WorldModel inputs.
+
+    The dataset provides current observations ``[o_t, ..., o_(t+T-1)]`` and
+    labels ``[o_(t+1), ..., o_(t+T)]``.  The current observations are the
+    reconstruction targets.  Labels are used only to infer posterior states
+    after each action; those states become the current states at the following
+    time indices/BPTT windows.
+    """
 
     def __init__(self, frame_shape):
         self.height, self.width = frame_shape
@@ -30,17 +37,18 @@ class WorldModelBatchCollator:
         action = torch.cat(
             [velocity[:, 0], rotational_velocity[:, 0]], dim=-1
         )
-        observation = scene.reshape(
+        current_observation = scene.reshape(
             *scene.shape[:-1], 1, self.height, self.width
         )
-        target = labels[:, 0].reshape(
+        post_action_observation = labels[:, 0].reshape(
             *labels[:, 0].shape[:-1], 1, self.height, self.width
         )
 
         return (
             action.transpose(0, 1).contiguous(),
-            observation.transpose(0, 1).contiguous(),
-            target.transpose(0, 1).contiguous(),
+            post_action_observation.transpose(0, 1).contiguous(),
+            current_observation.transpose(0, 1).contiguous(),
+            current_observation[:, 0].contiguous(),
         )
 
 
@@ -61,8 +69,20 @@ class LightningWorldModelRunner(pl.LightningModule):
         self.model.to(self.device)
 
     def _chunks(self, batch):
-        return tuple(
-            tensor.split(self.bptt_steps, dim=0) for tensor in batch
+        if len(batch) == 3:
+            action, observation, target = batch
+            initial_obs = None
+        elif len(batch) == 4:
+            action, observation, target, initial_obs = batch
+        else:
+            raise ValueError(
+                "WorldModel batches must have three or four tensors"
+            )
+        return (
+            action.split(self.bptt_steps, dim=0),
+            observation.split(self.bptt_steps, dim=0),
+            target.split(self.bptt_steps, dim=0),
+            initial_obs,
         )
 
     def _model_step(self, batch, initialize):
@@ -82,13 +102,14 @@ class LightningWorldModelRunner(pl.LightningModule):
             totals[key] = totals.get(key, 0) + value.detach()
 
     def training_step(self, batch, batch_idx):
-        action_chunks, obs_chunks, target_chunks = self._chunks(batch)
+        action_chunks, obs_chunks, target_chunks, initial_obs = self._chunks(batch)
         optimizer = self.optimizers()
         totals = {}
-        for index, chunk in enumerate(
+        for index, transition_chunk in enumerate(
             zip(action_chunks, obs_chunks, target_chunks)
         ):
             optimizer.zero_grad()
+            chunk = (*transition_chunk, initial_obs)
             loss_dict = self._model_step(chunk, initialize=index == 0)
             self.manual_backward(loss_dict["loss"])
             optimizer.step()
@@ -106,11 +127,12 @@ class LightningWorldModelRunner(pl.LightningModule):
         return totals["loss"]
 
     def validation_step(self, batch, batch_idx):
-        action_chunks, obs_chunks, target_chunks = self._chunks(batch)
+        action_chunks, obs_chunks, target_chunks, initial_obs = self._chunks(batch)
         totals = {}
-        for index, chunk in enumerate(
+        for index, transition_chunk in enumerate(
             zip(action_chunks, obs_chunks, target_chunks)
         ):
+            chunk = (*transition_chunk, initial_obs)
             loss_dict = self._model_step(chunk, initialize=index == 0)
             self._add_logs(totals, loss_dict)
         totals = self._mean_logs(totals, len(action_chunks))

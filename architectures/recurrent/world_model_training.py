@@ -148,10 +148,12 @@ class TrainerWorldModel(TrainerBPTT):
         return scene, image, action, target, target_image, pos, theta
 
     def _run_window(self, model, image, action, target_image, initialize):
+        # a_t,o_(t+1),o_t,o_0
         batch = (
             action.transpose(0, 1),
-            image.transpose(0, 1),
             target_image.transpose(0, 1),
+            image.transpose(0, 1),
+            image[:, 0] if initialize else None,
         )
         loss_dict, _, prediction = model._train(batch, init=initialize)
         if isinstance(model.dynamics, MTRSSM):
@@ -169,7 +171,9 @@ class TrainerWorldModel(TrainerBPTT):
                 self.args.high_kl_scale * top_complexity.detach()
             )
         output = prediction["prediction"].transpose(0, 1).flatten(-3)
-        latent = prediction["latent_states"].transpose(0, 1)
+        # Positions/headings and reconstruction targets both describe the
+        # pre-action/current times, so use the same aligned state history.
+        latent = prediction["analysis_latent_states"].transpose(0, 1)
         return loss_dict, output, latent
 
     def _predict_plot_batch(self, model, data, hidden_last):
@@ -178,7 +182,7 @@ class TrainerWorldModel(TrainerBPTT):
             model, image, action, target_image, hidden_last is None
         )
         model.dynamics.detach()
-        return torch.cat([scene, action], -1), target.cpu(), output, latent[:, -1]
+        return torch.cat([scene, action], -1), scene.cpu(), output, latent[:, -1]
 
     def train_epoch(self, model, dataloader):
         model.train()

@@ -45,7 +45,11 @@ def canonical_model_name(name: str) -> str:
     return re.sub(r"_ft(?=_|$)", "", name, flags=re.IGNORECASE)
 
 
-def find_summaries(data_dir: Path) -> dict[str, dict[str, list[Path]]]:
+def find_summaries(
+    data_dir: Path,
+    activity_transform: str | None = None,
+    lstm_activity_state: str | None = None,
+) -> dict[str, dict[str, list[Path]]]:
     """Return canonical model -> stage -> summary paths."""
     results: dict[str, dict[str, list[Path]]] = defaultdict(
         lambda: defaultdict(list)
@@ -61,6 +65,16 @@ def find_summaries(data_dir: Path) -> dict[str, dict[str, list[Path]]]:
         if len(parts) < 7 or parts[0] != "box" or parts[1] not in STAGES:
             continue
         stage = parts[1]
+        result_name = path.parent.name.casefold()
+        if activity_transform is not None:
+            transform_suffix = f"_{activity_transform.casefold()}"
+            if not result_name.endswith(transform_suffix):
+                continue
+        if (
+            lstm_activity_state is not None
+            and f"_{lstm_activity_state.casefold()}_" not in result_name
+        ):
+            continue
         model_name = path.parent.parent.name
         results[canonical_model_name(model_name)][stage].append(path)
 
@@ -193,6 +207,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--list", action="store_true", help="利用可能なモデル名を一覧表示"
     )
+    parser.add_argument(
+        "--activity-transform",
+        choices=("softplus", "minmax", "halfshift"),
+        help="指定したactivity transformの解析結果だけを表示",
+    )
+    parser.add_argument(
+        "--lstm-activity-state",
+        choices=("tanh_cell", "cell"),
+        help="指定したLSTM cell-state解析結果だけを表示",
+    )
     return parser.parse_args()
 
 
@@ -202,7 +226,11 @@ def main() -> int:
         print(f"data ディレクトリが見つかりません: {args.data_dir}", file=sys.stderr)
         return 1
 
-    results = find_summaries(args.data_dir)
+    results = find_summaries(
+        args.data_dir,
+        args.activity_transform,
+        args.lstm_activity_state,
+    )
     model_names = sorted(results, key=str.casefold)
     if not model_names:
         print(f"summary.txt が見つかりません: {args.data_dir}", file=sys.stderr)

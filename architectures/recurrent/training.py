@@ -8,6 +8,8 @@ from architectures.training import Trainer
 
 def _clone_recurrent_state(state):
     """Clone a tensor state or every component of an LSTM state tuple."""
+    if state is None:
+        return None
     if isinstance(state, tuple):
         return tuple(component.clone() for component in state)
     return state.clone()
@@ -15,6 +17,8 @@ def _clone_recurrent_state(state):
 
 def _detach_recurrent_state(state):
     """Detach a tensor state or every component of an LSTM state tuple."""
+    if state is None:
+        return None
     if isinstance(state, tuple):
         return tuple(component.detach() for component in state)
     return state.detach()
@@ -158,7 +162,26 @@ class TrainerBPTT(Trainer):
                 ).to(self.device)
                 labels = labels.squeeze(dim=0)[:, 0, ...].to(self.device)
 
+                state_before_window = _clone_recurrent_state(hidden_last)
                 outputs, hidden_all, hidden_last = model(inputs, hidden_last)
+
+                analysis_activity = hidden_all
+                lstm_activity_state = getattr(
+                    self.args, 'lstm_activity_state', 'hidden'
+                )
+                if (
+                    for_trajectory
+                    and getattr(self.args, 'architecture', None) == 'lstm'
+                    and lstm_activity_state != 'hidden'
+                ):
+                    _, cell_all = model.unfold_states(
+                        inputs, state_before_window
+                    )
+                    analysis_activity = (
+                        torch.tanh(cell_all)
+                        if lstm_activity_state == 'tanh_cell'
+                        else cell_all
+                    )
 
                 loss = self.loss_fn(outputs, labels)
                 loss_wrt_input = self.loss_fn(outputs, scene.squeeze(dim=0).to(self.device))
@@ -196,7 +219,9 @@ class TrainerBPTT(Trainer):
                     hidden_last = None
 
                 if for_trajectory:
-                    hidden_activity.append(hidden_all.detach().cpu().numpy())
+                    hidden_activity.append(
+                        analysis_activity.detach().cpu().numpy()
+                    )
                     positions.append(pos.squeeze(dim=0)[:, 0, ...].cpu().numpy())
                     thetas.append(thet.squeeze(dim=0)[:, 0, ...].cpu().numpy())
             
