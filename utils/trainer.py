@@ -54,10 +54,7 @@ class RNNTrainer():
                 )
             elif architecture == 'crssmv4':
                 model_name += (
-                    f'_emb{args["embed_obs_dim"]}'
-                    f'_coarse{args["coarse_dim"]}'
-                    f'_cstoch{args["coarse_stoch_dim"]}'
-                    f'_l0{args["w_l0_norm"]}'
+                    "crssmv4"
                 )
             if args.get('stoch_dist', 'normal') == 'categorical':
                 model_name += f'_cat{args["stoch_n_class"]}'

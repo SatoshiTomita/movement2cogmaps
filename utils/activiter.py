@@ -11,7 +11,7 @@ from utils.plots import plot_trajectory_heatmap
 
 
 class RNNActiviter():
-
+    """学習後の解析を担当するクラス"""
     def __init__(self, args, data_dir, device, model_name, exp_dir):
         self.args = args
         self.data_dir = data_dir
