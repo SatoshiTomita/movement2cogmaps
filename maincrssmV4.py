@@ -10,15 +10,14 @@ from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 from src.data.world_dataset import DatasetModule, split_id
-from src.data.make_predata import prepare_dataset
-from src.modules.world import (WorldModel, CoarseWorldModel )
-from src.utils.callbacks import SaveParams, SwitchOptimizer
-from src.utils.config import (AgentConfig, ExperimentConfig, 
+from architectures.world import (WorldModel, CoarseWorldModel )
+from utils.callbacks import SaveParams, SwitchOptimizer
+from utils.config import (AgentConfig, ExperimentConfig, 
                               load_config, TrainerConfig, 
                               CRSSMConfig, CRSSMV4Config, 
                               )
-from src.utils.eval import eval_world
-from src.utils.utils import torch_fix_seed
+from utils.eval import eval_world
+from utils.utils import torch_fix_seed
 
 
 warnings.filterwarnings("ignore", ".*box bound precision lowered.*")
