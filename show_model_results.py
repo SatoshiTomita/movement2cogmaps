@@ -110,6 +110,13 @@ def choose_model(query: str, model_names: list[str]) -> str | None:
 
 def latent_activity_dimension(summary_path: Path) -> int | None:
     """Return the number of units that were actually spatially analysed."""
+    dimension_path = summary_path.with_name("cell_activity_dimension.txt")
+    if dimension_path.is_file():
+        try:
+            return int(dimension_path.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            pass
+
     for filename in ("recurrent_activity.npy", "latent_activity.npy"):
         activity_path = summary_path.with_name(filename)
         if not activity_path.is_file():

@@ -21,11 +21,17 @@ def spatial_info(rate: np.ndarray, occ: np.ndarray, method="bit_sec_hertz") -> f
     _occ = occ[~no_occ]
     # turn occ in a probability
     duration = np.sum(_occ)
+    if not np.isfinite(duration) or duration <= 0:
+        return 0.0
     _occ_prob = _occ / duration
 
-    if np.isnan(_rate).all() : return 0
+    if np.isnan(_rate).all() : return 0.0
 
     _rate_mean = np.sum(_rate*_occ) / duration
+    # Silent/constant-zero units occur naturally for categorical latent
+    # states.  Their spatial information is zero rather than undefined.
+    if not np.isfinite(_rate_mean) or _rate_mean <= 0:
+        return 0.0
     mask = _rate > 0
     SI = np.sum(
         _occ_prob[mask] * _rate[mask] * np.log2(_rate[mask] / _rate_mean)
@@ -324,4 +330,3 @@ def get_smooth_rate_map(
     rate_maps = np.flip(rate_maps, axis=0)
 
     return rate_maps, occupancy_smoothed
-

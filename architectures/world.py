@@ -8,16 +8,16 @@ import torch.nn.functional as F
 import torch.nn as nn
 from einops import rearrange
 from omegaconf import DictConfig, OmegaConf
-from src.networks.activations import Activation
-from src.networks.base import LightningModuleBase
-from src.networks.dynamics import MTRSSM, RSSM, CRSSMV4, CRSSM
+from networks.activations import Activation
+from networks.base import LightningModuleBase
+from networks.dynamics import MTRSSM, RSSM, CRSSMV4, CRSSM
 
-from src.utils.states import cat_dicts, sum_dicts
-from src.networks.layers import (MLPLayer, States2Map1d, 
+from utils.states import cat_dicts, sum_dicts
+from networks.layers import (MLPLayer, States2Map1d,
                                  States2Map2d, SoftmaxTransformation,
                                  Map2States)
-from src.networks.vision import Decoder, Encoder
-from src.utils.config import (
+from networks.vision import Decoder, Encoder
+from utils.config import (
     CRSSMV4Config,
     MTRSSMConfig,
     CRSSMConfig,
@@ -25,10 +25,10 @@ from src.utils.config import (
     WorldConfig,
 )
 
-from src.utils.loss import CalcFreeEnergy
-from src.utils.loss import LossFunctions as lf
-from src.utils.states import StochState, CoarseWorldStates, Worlds, get_dist
-from src.utils.utils import mytorch, HeavisideStepFnc
+from utils.loss import CalcFreeEnergy
+from utils.loss import LossFunctions as lf
+from utils.states import StochState, CoarseWorldStates, Worlds, get_dist
+from utils.utils import mytorch, HeavisideStepFnc
 
 
 class WorldModel(LightningModuleBase):
@@ -133,6 +133,7 @@ class WorldModel(LightningModuleBase):
             return wld_loss, pred_dict
 
     def rollout(self, act_in: torch.Tensor, obs_in: torch.Tensor, init: bool = True) -> Tuple[Worlds, torch.Tensor, dict]:
+        # CNNエンコーダーに通す
         embed_obs = self.obs_encoder(obs_in)
 
         if init:
@@ -406,4 +407,3 @@ class CoarseWorldModel(WorldModel):
             wld_loss["coarse_l0_norm"] = coarse_l0_norm.item()
 
         return wld_loss, pred_dict
-

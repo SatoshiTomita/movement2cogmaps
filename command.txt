@@ -97,3 +97,90 @@ CUDA_VISIBLE_DEVICES=2 .venv311/bin/python RNN_experiment.py \
   --seed 1 \
   --activity_transform identity \
   --wandb
+
+CUDA_VISIBLE_DEVICES=2 .venv311/bin/python analyze_world_model.py \
+  --model-name 0824base \
+  --alpha 1.0 \
+  --seed 0 \
+  --device 0 \
+  --stages crawl,walk,run,adult
+
+CUDA_VISIBLE_DEVICES=2 .venv311/bin/python maincrssmV4.py \
+  --model_name 0826base \
+  --alpha 1.0 \
+  --seed 0 \
+  --device 0 \
+  --world \
+  --train \
+  --curriculum crawl \
+  --epochs 10000 \
+  --disable-early-stop \
+  --clean-old-checkpoints 
+
+
+CUDA_VISIBLE_DEVICES=2 MPLCONFIGDIR=/tmp/matplotlib \
+.venv311/bin/python analyze_world_model.py \
+  --model-name 0826base \
+  --alpha 1.0 \
+  --seed 0 \
+  --device 0 \
+  --stages crawl \
+  --skip-plots
+
+cd /home/tomita/movement2cogmaps
+
+CUDA_VISIBLE_DEVICES=1 MPLCONFIGDIR=/tmp/matplotlib \
+.venv311/bin/python analyze_world_model.py \
+  --model-name 0824base \
+  --alpha 1.0 \
+  --seed 0 \
+  --device 0 \
+  --stages crawl,walk,run,adult \
+  --no-deterministic-latents
+
+for cfg in \
+  "baseline 128 8 8" \
+  "determ32 32 8 8"
+do
+  set -- $cfg
+
+  CUDA_VISIBLE_DEVICES=2 MPLCONFIGDIR=/tmp/matplotlib \
+  .venv311/bin/python RNN_experiment.py \
+    --architecture rssm \
+    --curriculum crawl,walk,run,adult \
+    --env box_messy \
+    --latent_dim "$2" \
+    --stoch_dim "$3" \
+    --stoch_dist categorical \
+    --stoch_n_class "$4" \
+    --kl_scale 1.0 \
+    --free_nats 0.1 \
+    --epochs 1500 \
+    --epoch_act 1500 \
+    --num_workers 8 \
+    --seed 1 \
+    --name_prefix "rssm_$1" \
+    --activity_only \
+    --activity_transform halfshift \
+    --cell-activity-source combined
+done
+
+CUDA_VISIBLE_DEVICES=2 MPLCONFIGDIR=/tmp/matplotlib \
+.venv311/bin/python RNN_experiment.py \
+  --architecture rssm \
+  --curriculum crawl,walk,run,adult \
+  --env box_messy \
+  --latent_dim 128 \
+  --stoch_dim 16 \
+  --stoch_dist categorical \
+  --stoch_n_class 8 \
+  --kl_scale 1.0 \
+  --free_nats 0.1 \
+  --epochs 1500 \
+  --epoch_act 1500 \
+  --num_workers 8 \
+  --seed 1 \
+  --name_prefix rssm_stoch16 \
+  --activity_only \
+  --activity_transform halfshift \
+  --cell-activity-source combined

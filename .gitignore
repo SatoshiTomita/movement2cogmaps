@@ -220,3 +220,6 @@ __marimo__/
 # Macos
 .DS_Store
 
+models/params/
+
+reports/

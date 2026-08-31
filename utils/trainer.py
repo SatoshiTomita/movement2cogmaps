@@ -364,7 +364,8 @@ class RNNTrainer():
         )
 
     def generate_dataloader(
-        self, video, velocity, rot_velocity, positions, thetas, verbose=False
+        self, video, velocity, rot_velocity, positions, thetas, verbose=False,
+        collate_fn=None,
     ):
         # we now introduce windows to the data, so that each batch contains
         # STRIDE*SEEDS examples of the same time window length and the number
@@ -384,6 +385,7 @@ class RNNTrainer():
                 ),
                 shuffle=False,
                 num_workers=self.args.num_workers,
+                collate_fn=collate_fn,
             )
             if verbose:
                 print("\tDataloader length:", len(dataloader))
@@ -409,6 +411,7 @@ class RNNTrainer():
             ),
             shuffle=False,
             num_workers=self.args.num_workers,
+            collate_fn=collate_fn,
         )
         if verbose:
             print("\tDataloader length:", len(dataloader))

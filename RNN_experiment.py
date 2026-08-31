@@ -431,6 +431,16 @@ if __name__ == '__main__':
         "to scale each latent unit to [0, 1] across all trajectories and "
         "timesteps; default is identity.")
     argparser.add_argument(
+        '--cell-activity-source',
+        choices=['deterministic', 'combined'],
+        default='deterministic',
+        help=(
+            "RSSM states used for place/HD/conjunctive-cell analysis. "
+            "'deterministic' uses h only; 'combined' uses h together with "
+            "the posterior stochastic state z. Default is deterministic."
+        ),
+    )
+    argparser.add_argument(
         '--epoch_act', type=int, default=None,
         help="The epoch to load the model from. Default is None (last available epoch)")
     

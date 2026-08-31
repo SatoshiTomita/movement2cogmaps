@@ -65,7 +65,14 @@ class DatasetConfig:
     interval: int = 1
     binarize_code: bool = False
     freeze_padding: int = False
-    
+    # Parameters used by the current RNN_experiment.py simulation loader.
+    data_root: str = "data"
+    behaviour: str = "adult"
+    env: str = "box_messy"
+    env_dim: float = 0.635
+    stride: int = 10
+    num_workers: int = 0
+
 
 @dataclass
 class IndexConfig:
@@ -887,16 +894,15 @@ class DiffusionConfig:
     prediction_type: str = "epsilon" #"epsilon" or "sample"
     clip_sample: bool = True #拡散ステップごとにサンプルを[-range, range]でクリップするか：アクションが正規化されている必要あり
     clip_sample_range: float = 1.0
-    
+
     # Inference
     num_inference_steps: int | None = None #逆拡散ステップ数．特に指定がなければ学習時の拡散ステップ数と同じ
 
     # Loss computation
     do_mask_loss_for_padding: bool = False
-    
+
     def __post_init__(self):
         self.input_shapes = tuple(self.input_shapes)
-        
+
     def dc2dict(self):
         pass
-    

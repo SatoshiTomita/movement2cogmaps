@@ -11,7 +11,7 @@ from utils.plots import plot_trajectory_heatmap
 
 
 class RNNActiviter():
-    """学習後の解析を担当するクラス"""
+    """学習後の解析を担当するクラス sRSAなど"""
     def __init__(self, args, data_dir, device, model_name, exp_dir):
         self.args = args
         self.data_dir = data_dir
@@ -35,6 +35,11 @@ class RNNActiviter():
             # GRUの活性化関数はtanhで出力が負になる可能性がある
             # softplusを使用することで非負の活性化関数を使用する
             dir_name += f"_{self.args.activity_transform}"
+        cell_source = getattr(
+            self.args, 'cell_activity_source', 'deterministic'
+        )
+        if cell_source != 'deterministic':
+            dir_name += f"_cells-{cell_source}"
         self.exp_dir = os.path.join(self.exp_dir, dir_name)
         os.makedirs(self.exp_dir, exist_ok=True)
         print(f"\n[+] Created activity directory\n\t{self.exp_dir}")
@@ -119,10 +124,20 @@ class RNNActiviter():
     def select_recurrent_activity(self, latent_activity, save_output=False):
         """Select deterministic recurrent states for cell-like unit analyses."""
         architecture = getattr(self.args, 'architecture', 'rnn')
+        cell_source = getattr(
+            self.args, 'cell_activity_source', 'deterministic'
+        )
 
         if architecture == 'rssm':
-            recurrent_activity = latent_activity[..., :self.args.latent_dim]
-            description = 'RSSM GRU deterministic state h'
+            if cell_source == 'combined':
+                recurrent_activity = latent_activity
+                description = (
+                    'RSSM deterministic state h and posterior stochastic '
+                    'state z'
+                )
+            else:
+                recurrent_activity = latent_activity[..., :self.args.latent_dim]
+                description = 'RSSM GRU deterministic state h'
         elif architecture == 'mtrssm':
             n_class = (
                 self.args.stoch_n_class
@@ -178,15 +193,23 @@ class RNNActiviter():
             recurrent_activity = latent_activity
             description = 'recurrent hidden state'
 
-        expected_dim = (
-            self.args.latent_dim + (
+        if architecture == 'rssm' and cell_source == 'combined':
+            n_class = (
+                self.args.stoch_n_class
+                if self.args.stoch_dist == 'categorical'
+                else 1
+            )
+            expected_dim = self.args.latent_dim + self.args.stoch_dim * n_class
+        else:
+            expected_dim = (
+                self.args.latent_dim + (
                 self.args.higher_latent_dim
                 if architecture == 'mtrssm'
                 else self.args.coarse_dim
+                )
+                if architecture in {'mtrssm', 'crssmv4'}
+                else self.args.latent_dim
             )
-            if architecture in {'mtrssm', 'crssmv4'}
-            else self.args.latent_dim
-        )
         if recurrent_activity.shape[-1] != expected_dim:
             raise ValueError(
                 f'Expected {expected_dim} recurrent units for {architecture}, '

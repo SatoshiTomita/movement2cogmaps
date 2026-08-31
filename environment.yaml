@@ -8,6 +8,11 @@ dependencies:
       - torch
       - torchvision
       - torchaudio
+      - pytorch-lightning
+      - hydra-core
+      - omegaconf
+      - wandb
+      - einops
       - torch-optimizer
       - kornia
       - torchgeometry

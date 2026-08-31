@@ -376,19 +376,33 @@ class RateMapsPlotter():
         metric (np.array): (n_units, 1) Array of the metric to plot.
         metric_name (str): Name of the metric to plot.
         """
+        metric = np.asarray(metric)
+        finite_metric = metric[np.isfinite(metric)]
         plt.figure(figsize=(5,4))
-        plt.hist(metric, bins=50)
+        if finite_metric.size:
+            plt.hist(finite_metric, bins=50)
+        else:
+            plt.text(
+                0.5, 0.5, "No finite values", ha="center", va="center",
+                transform=plt.gca().transAxes,
+            )
         plt.xlabel(metric_name)
         plt.ylabel('Occurrences')
+        lims = None
         if 'sir' in metric_name.lower():
             lims = (0, 1.5)
             plt.xlim(*lims)
         plt.tight_layout()
 
         if self.wandb_log:
-            metric_hist_np = np.histogram(metric, bins=50, range=lims)
+            metric_hist_np = np.histogram(
+                finite_metric, bins=50, range=lims
+            )
             wandb_log_hist(metric_hist_np, metric_name)
-            wandb.log({WANDB_METRICS_PREFIX+metric_name: float(np.nanmean(metric))})
+            mean_metric = (
+                float(np.mean(finite_metric)) if finite_metric.size else 0.0
+            )
+            wandb.log({WANDB_METRICS_PREFIX+metric_name: mean_metric})
 
         if self.save_figures:
             plt.savefig(os.path.join(self.exp_dir, f'{metric_name}.png'), bbox_inches='tight')
@@ -837,10 +851,19 @@ class PolarMapsPlotter():
         metric (np.array): (n_units, 1) Array of the metric to plot.
         metric_name (str): Name of the metric to plot.
         """
+        metric = np.asarray(metric)
+        finite_metric = metric[np.isfinite(metric)]
         fig = plt.figure(figsize=(5,4))
-        plt.hist(metric, bins=50)
+        if finite_metric.size:
+            plt.hist(finite_metric, bins=50)
+        else:
+            plt.text(
+                0.5, 0.5, "No finite values", ha="center", va="center",
+                transform=plt.gca().transAxes,
+            )
         plt.xlabel(metric_name)
         plt.ylabel('Occurrences')
+        lims = None
         if 'sid' in metric_name.lower():
             lims = (0, 0.5)
             plt.xlim(*lims)
@@ -850,9 +873,14 @@ class PolarMapsPlotter():
         plt.tight_layout()
 
         if self.wandb_log:
-            metric_hist_np = np.histogram(metric, bins=50, range=lims)
+            metric_hist_np = np.histogram(
+                finite_metric, bins=50, range=lims
+            )
             wandb_log_hist(metric_hist_np, metric_name)
-            wandb.log({WANDB_METRICS_PREFIX+metric_name: float(np.nanmean(metric))})
+            mean_metric = (
+                float(np.mean(finite_metric)) if finite_metric.size else 0.0
+            )
+            wandb.log({WANDB_METRICS_PREFIX+metric_name: mean_metric})
 
         if self.save_figures:
             plt.savefig(os.path.join(self.exp_dir, f'{metric_name}.png'), bbox_inches='tight')

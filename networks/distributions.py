@@ -198,7 +198,12 @@ class Representation(nn.Module):
         return self.posterior(deterministic_state, observation, deterministic=deterministic, inv_tmp=inv_tmp)
 
     def deterministic_onehot(self, input:torch.Tensor):
-        return F.one_hot(input.argmax(dim=-1), num_classes=self.classes) + input - input.detach()
+        # The categorical class count is represented by the final probability
+        # dimension. Deriving it here keeps deterministic inference compatible
+        # with modules/checkpoints that do not define a ``classes`` attribute.
+        return F.one_hot(
+            input.argmax(dim=-1), num_classes=input.shape[-1]
+        ) + input - input.detach()
 
 
 class Transition(nn.Module):
@@ -358,4 +363,6 @@ class Transition(nn.Module):
         return self.prior(deterministic_state, deterministic=deterministic)
 
     def deterministic_onehot(self, input:torch.Tensor):
-        return F.one_hot(input.argmax(dim=-1), num_classes=self.classes) + input - input.detach()
+        return F.one_hot(
+            input.argmax(dim=-1), num_classes=input.shape[-1]
+        ) + input - input.detach()

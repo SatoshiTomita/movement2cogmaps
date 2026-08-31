@@ -659,6 +659,7 @@ class WorldStatesLayer:
 
 @dataclass(frozen=True)
 class CoarseWorldStates:
+    "CRSSMV4の状態をまとめて保持するデータクラス"
     determ: torch.Tensor
     coarse: torch.Tensor
     prior: StochState

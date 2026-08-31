@@ -512,8 +512,7 @@ class CRSSMV4(nn.Module):
     
     def step(self, action: torch.Tensor, obs: torch.Tensor =None, deterministic:bool = False) -> Tuple[CoarseWorldStates, Dict[str, torch.Tensor]]:
         loss_dict = {}
-        # print(self.prev_c_stoch.shape)
-        # print(self.coarse_state.shape)
+        # coarse RNNへ入力
         coarse_returns = self.coarse_dyn(self.prev_c_stoch, self.coarse_state)
         if self._c_is_vqrnn:
             self.coarse_state, c_vq_loss, gate = coarse_returns
@@ -529,7 +528,8 @@ class CRSSMV4(nn.Module):
         ) if obs is not None or self.cfg.coarse_obs == "determ" else c_prior
         self.prev_c_stoch = c_posterior.stoch
 
-        # print(action.shape)
+        # 下位層のMTRNNへの入力
+        # action,前の確率的状態、前の上位層の確率的状態
         determ_state = self.precise_dyn(
             torch.cat([action, self.prev_stoch, self.prev_c_stoch], dim=-1), self.hidden_state
         )

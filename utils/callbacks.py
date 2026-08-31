@@ -5,11 +5,12 @@ from pytorch_lightning.callbacks import RichProgressBar
 from pytorch_lightning.callbacks.progress.rich_progress import \
     RichProgressBarTheme
 import wandb
-from src.data.make_predata import unscale_obs
-from src.data.world_dataset import  WorldDataset
-from typing import Union
+from typing import TYPE_CHECKING, Union
 from einops import rearrange
 from schedulefree import RAdamScheduleFree
+
+if TYPE_CHECKING:
+    from src.data.world_dataset import WorldDataset
 
 
 class SaveParams(pl.Callback):
@@ -54,7 +55,7 @@ class LogOriginalImage(pl.Callback):
         super().__init__()
 
     def on_fit_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        dataset: WorldDataset =  trainer.datamodule.val_data
+        dataset: "WorldDataset" = trainer.datamodule.val_data
         image_inputs = dataset.image_inputs
         print(image_inputs.shape)
 
@@ -79,6 +80,10 @@ class VisualizeReconstruction(pl.Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
+        # This visualization callback belongs to the former src.data pipeline.
+        # Import it only when that optional callback is actually used.
+        from src.data.make_predata import unscale_obs
+
         if trainer.current_epoch % self.save_every_n_epoch != 0:
             return
         media_dict = {}
