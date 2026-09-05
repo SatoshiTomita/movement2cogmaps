@@ -184,3 +184,15 @@ CUDA_VISIBLE_DEVICES=2 MPLCONFIGDIR=/tmp/matplotlib \
   --activity_only \
   --activity_transform halfshift \
   --cell-activity-source combined
+
+for seed in 1 2 3; do
+  CUDA_VISIBLE_DEVICES=2 .venv311/bin/python maincrssmV4.py \
+    --model_name 0824base \
+    --alpha 1.0 \
+    --seed "$seed" \
+    --device 0 \
+    --world \
+    --train \
+    --curriculum crawl,walk,run,adult \
+    --clean-old-checkpoints
+done

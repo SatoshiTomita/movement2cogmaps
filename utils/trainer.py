@@ -507,12 +507,13 @@ class RNNTrainer():
                     else 1
                 ),
             )
+            # rnn_nameをGRU→RNNに変更
             rssm_cfg = RSSMConfig(
                 determ_dim=self.args.latent_dim,
                 stoch_cfg=stoch_cfg,
                 init_from_="obs",
                 init_with_="posterior",
-                rnn_name="GRU",
+                rnn_name="RNN",
                 rnn_cfg=RNNConfig(bias=bool(self.args.bias)),
             )
             rnn = RSSMPredictor(
