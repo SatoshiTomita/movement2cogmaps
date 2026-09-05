@@ -6,7 +6,7 @@ library(reticulate)
 np <- import("numpy", convert = FALSE)
 
 
-BASE_DIR <- "/home/USER/vr_to_pc/R_stats"
+BASE_DIR <- "/home/tomita/movement2cogmaps/R_stats"
 
 # Helper function: extract Wilcoxon p-values for pairs 1-2 and 2-3
 get_wilcox_pvals <- function(test) {
