@@ -455,6 +455,19 @@ class RNNTrainer():
         """RNNモデルと学習設定一式を生成する関数"""
         from architectures.losses_custom import DiscountLoss
 
+        loss_fn = DiscountLoss(
+            torch.nn.L1Loss(reduction='none'),
+            discount_factor=self.args.discount_factor,
+            n_future_pred=self.args.n_future_pred,
+        ).to(self.device)
+
+        if self.args.activity_only:
+            # activity_part loads the current stage's complete saved model.
+            # Rebuilding it here can use a different architecture from the
+            # checkpoint (e.g. RNN after an older GRU experiment), and copying
+            # the previous stage's weights is unnecessary for evaluation.
+            return None, loss_fn, None, None
+
         rnn_loaded = None
         # 事前学習済みモデルが指定されている場合、モデルをロードする
         if self.args.pretrained_model_folder or self.args.pretrained_behav:
@@ -637,6 +650,23 @@ class RNNTrainer():
                 bias = self.args.bias,
             ).to(self.device)
 
+        if rnn_loaded is not None:
+            previous_state = rnn_loaded.state_dict()
+            mismatches = [
+                f'{name}: saved {tuple(previous_state[name].shape)}, '
+                f'current {tuple(p.shape)}'
+                for name, p in rnn.named_parameters()
+                if name in previous_state and previous_state[name].shape != p.shape
+            ]
+            if mismatches:
+                raise ValueError(
+                    'Cannot transfer pretrained weights to a different model '
+                    'architecture. GRU and RNN weights are not interchangeable. '
+                    'Use a checkpoint with the same architecture, or start '
+                    'training from crawl without pretrained weights.\n'
+                    + '\n'.join(mismatches)
+                )
+
         print("\n[*] Model parameters:")
         for name, p in rnn.named_parameters():
             print(f"\t{name}, shape {p.shape}, requires grad {p.requires_grad}")
@@ -644,11 +674,6 @@ class RNNTrainer():
             if rnn_loaded is not None and name in rnn_loaded.state_dict():
                 print(f"\t\t+++ Loading weights from previous model +++")
                 rnn.state_dict()[name].copy_(rnn_loaded.state_dict()[name].detach())
-
-        # 損失関数(L1Loss)の定義
-        loss_fn = DiscountLoss(
-            torch.nn.L1Loss(reduction='none'), discount_factor=self.args.discount_factor, n_future_pred=self.args.n_future_pred
-        ).to(self.device)
 
         optimizer = torch.optim.RMSprop(
             rnn.parameters(),
