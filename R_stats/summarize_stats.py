@@ -28,9 +28,10 @@ def read_rows(path):
         missing = required - set(reader.fieldnames or [])
         if missing:
             raise ValueError(f"必要な列がありません: {', '.join(sorted(missing))}")
+        columns = (*P_COLUMNS, "wilcox_1_3_p") if "wilcox_1_3_p" in reader.fieldnames else P_COLUMNS
         for line, row in enumerate(reader, 2):
             values = []
-            for column in P_COLUMNS:
+            for column in columns:
                 raw = (row.get(column) or "").strip()
                 if raw.lower() in {"", "na", "nan", "null"}:
                     values.append(None)
@@ -66,6 +67,7 @@ def main():
     parser.add_argument("csv", nargs="?", type=Path, default=directory / "stats_out.csv")
     parser.add_argument("--output", type=Path, help="HTML保存先（既定: 入力CSVと同じ場所のstats_summary.html）")
     parser.add_argument("--alpha", type=float, default=0.05, help="判定基準（既定: 0.05）")
+    parser.add_argument("--title", default="統計検定の結果", help="HTMLのタイトル・見出し")
     parser.add_argument("--groups", nargs=3, default=["群1", "群2", "群3"],
                         metavar=("GROUP1", "GROUP2", "GROUP3"),
                         help="3群の表示名。モデル・実測の両方に適用されます")
@@ -83,6 +85,8 @@ def main():
     g1, g2, g3 = args.groups
     headers = ["指標", "対象", "JT：全体の増加傾向",
                f"Wilcoxon：{g2} > {g1}", f"Wilcoxon：{g3} > {g2}"]
+    if len(rows[0][2]) == 4:
+        headers.append(f"Wilcoxon：{g3} > {g1}")
     notes = [
         f"判定はp < {args.alpha:g}。有意ではない結果は「差がない」ことの証明ではありません。",
         "calculate_stats.rの設定：JTは増加方向・10,000回の置換、Wilcoxonは片側・対応なし。",
@@ -118,6 +122,7 @@ thead {background:#edf2f7} td {white-space:nowrap}
 .missing {color:#666} li {margin:8px 0}
 @media print {body {margin:0;padding:0} th,td {padding:6px} .table {overflow:visible}}
 </style></head><body><h1>統計検定の結果</h1>"""
+    document = document.replace("統計検定の結果", html.escape(args.title))
     document += "<p>入力：" + html.escape(str(args.csv.resolve())) + "</p>"
     document += "<div class='table'><table><thead><tr>" + "".join(
         "<th scope='col'>" + html.escape(header) + "</th>" for header in headers
