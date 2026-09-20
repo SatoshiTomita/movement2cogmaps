@@ -289,6 +289,14 @@ if __name__ == '__main__':
         '--name_prefix', type=str, default=None,
         help="Prefix to the model name. Default is None, i.e. no prefix.")
     argparser.add_argument(
+        '--model_name_template', type=str, default=None,
+        help=(
+            "Optional concise model-name template used for both the checkpoint "
+            "directory and W&B run name. Argument fields such as {architecture}, "
+            "{latent_dim}, and {behaviour} are available. The template is "
+            "expanded separately at each curriculum stage."
+        ))
+    argparser.add_argument(
         '--pretrained_model_folder', type=str, default=None,
         help="Set this parameter to fine-tune a pre-trained model specifying the exact directory.")
     argparser.add_argument(

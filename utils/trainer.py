@@ -21,8 +21,27 @@ class RNNTrainer():
 
     @staticmethod
     def define_model_name(args):
+        """学習の際のモデル名を定義する関数"""
         # convert args to dict if it is a Namespace
         args = vars(args) if not isinstance(args, dict) else args
+
+        # Evaluate an explicit concise name for every curriculum stage, after
+        # RNN_experiment.py has updated ``behaviour`` for that stage. The same
+        # name is used for the checkpoint directory and the W&B run.
+        model_name_template = args.get('model_name_template')
+        if model_name_template:
+            try:
+                model_name = model_name_template.format_map(args)
+            except (KeyError, ValueError) as exc:
+                raise ValueError(
+                    f'Invalid --model_name_template {model_name_template!r}: {exc}'
+                ) from exc
+            if not model_name or os.path.basename(model_name) != model_name:
+                raise ValueError(
+                    '--model_name_template must produce a non-empty file name '
+                    'without directory separators'
+                )
+            return model_name
 
         # argsからモデル名を生成する(デフォルトはrnn)
         architecture = args.get('architecture', 'rnn')
@@ -39,18 +58,14 @@ class RNNTrainer():
             if args['pretrained_model_folder'] : model_name += '_ft'
             if args['reset_hidden_at'] is not None : model_name += f'_reset{args["reset_hidden_at"]}'
             model_name += (
-                f'_f{args["n_future_pred"]}_w{args["bptt_steps"]}_st{args["stride"]}'+
-                f'_fss4_do{str(args["dropouts"]).replace(" ", "")}'+
                 f'_lat{args["latent_dim"]}_stoch{args["stoch_dim"]}'+
-                f'_kl{args["kl_scale"]}_fn{args["free_nats"]}'+
-                f'_hreg{args["hidden_reg"]}_wreg{args["weights_reg"]}_s{args["seed"]:02d}'
+                "rssm"
             )
             if architecture == 'mtrssm':
                 model_name += (
                     f'_hlat{args["higher_latent_dim"]}'
                     f'_hstoch{args["higher_stoch_dim"]}'
-                    f'_ta{args["temporal_abstraction"]}'
-                    f'_tau{args["lower_tau"]}-{args["higher_tau"]}'
+                    "mtrssm"
                 )
             elif architecture == 'crssmv4':
                 model_name += (

@@ -323,7 +323,9 @@ class TrainerRSSM(TrainerBPTT):
 
         # The plotting code expects the image channels first in ``inputs``.
         inputs = torch.cat((scene, action), dim=-1)
-        return inputs, observation.cpu(), outputs, hidden_last
+        # Outputs reconstruct the pre-action scene; the post-action observation
+        # is used only to infer the next state, not as the plotted target.
+        return inputs, scene.cpu(), outputs, hidden_last
 
     def train_epoch(self, model, dataloader):
         """Run one training epoch, adding the RSSM KL term to the loss."""

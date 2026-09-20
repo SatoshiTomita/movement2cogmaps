@@ -224,3 +224,7 @@ models/params/
 
 reports/
 R_stats/selected_models/
+R_stats/results/
+logs/
+violinplot.png
+

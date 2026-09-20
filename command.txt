@@ -1,8 +1,8 @@
 隠れ層の次元を267次元にしてGRUを学習
 CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
   --architecture gru \
-  --latent_dim 50 \
-  --name_prefix 0808_50dim \
+  --latent_dim 100 \
+  --name_prefix 0907_100dim \
   --curriculum crawl,walk,run,adult \
   --env box_messy \
   --activity_transform halfshift \
@@ -25,9 +25,9 @@ CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
   --latent_dim 200 \
   --stoch_dim 8 \
   --kl_scale 1.0 \
-  --free_nats 0.5 \
+  --free_nats 0.1 \
   --lr 1e-4 \
-  --name_prefix rssm_0804 \
+  --name_prefix rssm_0920 \
   --wandb \
 
 格子細胞を注入して学習(初期から)
@@ -196,3 +196,4 @@ for seed in 1 2 3; do
     --curriculum crawl,walk,run,adult \
     --clean-old-checkpoints
 done
+

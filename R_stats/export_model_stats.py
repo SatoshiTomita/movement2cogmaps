@@ -30,6 +30,7 @@ def state_indices():
     high_h, high_z = np.arange(192, 224), np.arange(224, 240)
     cases = {"GRU_hidden": ("gru", np.arange(267))}
     cases["GRU50_hidden"] = ("gru50", np.arange(50))
+    cases["GRU_0907_100dim_hidden"] = ("gru100", np.arange(100))
     cases["RNN_0716_hidden"] = ("rnn0716", np.arange(500))
     for label, model, h, z in (
         ("RSSM", "rssm", low_h, low_z),
@@ -45,6 +46,10 @@ def state_indices():
 
 def activity_dir(args, model, stage):
     base = args.data_root / "box" / stage / "predictions" / "box_messy"
+    if model == "gru100":
+        history = {"walk": "crawl", "run": "crawl_walk", "adult": "crawl_walk_run"}
+        return (base / history[stage] / f"GRU_0907_100dim_{stage}"
+                / f"act_{stage}_epoch1500_halfshift")
     if model == "gru50":
         history = {"walk": "crawl", "run": "crawl_walk", "adult": "crawl_walk_run"}
         # These saved analyses evaluate every training stage on crawl inputs.
@@ -76,7 +81,7 @@ def activity_dir(args, model, stage):
 
 
 def activity_transform(args, model):
-    if model == "gru50":
+    if model in {"gru50", "gru100"}:
         return "halfshift"
     if model == "rssm" and args.rssm_model:
         return args.rssm_transform
@@ -85,7 +90,7 @@ def activity_transform(args, model):
 
 def load_inputs(args, models):
     inputs, provenance = {}, {}
-    for model, dimension in (("gru", 267), ("gru50", 50), ("rssm", 192), ("crssmv4", 240), ("rnn0716", 500)):
+    for model, dimension in (("gru", 267), ("gru50", 50), ("gru100", 100), ("rssm", 192), ("crssmv4", 240), ("rnn0716", 500)):
         if model not in models:
             continue
         inputs[model], provenance[model] = {}, {}
@@ -131,7 +136,7 @@ def main():
                         help="CRSSMV4 posterior realization used by the saved analysis")
     parser.add_argument("--run-r", action="store_true", help="Also create stats_put.csv and HTML per case")
     parser.add_argument("--cases", nargs="+", choices=list(state_indices()),
-                        help="Export only these cases (default: GRU267/RSSM/CRSSMV4). GRU50_hidden and RNN_0716_hidden are opt-in; GRU50 uses saved crawl-input evaluations; precise = lower; coarse = upper.")
+                        help="Export only these cases (default: GRU267/RSSM/CRSSMV4). GRU50_hidden, GRU_0907_100dim_hidden and RNN_0716_hidden are opt-in; GRU50 uses saved crawl-input evaluations; precise = lower; coarse = upper.")
     parser.add_argument("--rssm-model", help="Exact RSSM directory name (_ft is optional); requires --cases RSSM_...")
     parser.add_argument("--rssm-transform", choices=("minmax", "halfshift"), default="minmax",
                         help="Saved activity transform for --rssm-model (default: minmax)")
@@ -142,6 +147,9 @@ def main():
     else:
         cases.pop("RNN_0716_hidden")
         cases.pop("GRU50_hidden")
+        cases.pop("GRU_0907_100dim_hidden")
+    if "GRU_0907_100dim_hidden" in cases and args.output_root.resolve() == (ROOT / "R_stats/selected_models").resolve():
+        parser.error("Use a separate --output-root for GRU_0907_100dim_hidden to preserve the baseline results")
     if "GRU50_hidden" in cases and args.output_root.resolve() == (ROOT / "R_stats/selected_models").resolve():
         parser.error("Use a separate --output-root for GRU50_hidden to preserve the baseline results")
     if "RNN_0716_hidden" in cases and args.output_root.resolve() == (ROOT / "R_stats/selected_models").resolve():
@@ -182,6 +190,12 @@ def main():
             "real_data_directory": str(args.real_data.resolve()),
             "scope": "SIr/SId/RVL by unit; original real-data tests retained",
         }
+        if model == "gru100":
+            metadata.update({
+                "model_family": "GRU_0907_100dim", "epoch": 1500,
+                "group_meaning": "Training stage; each stage evaluated on its matching activity inputs",
+                "activity_behaviour": dict(zip(STAGES, STAGES)),
+            })
         if model == "gru50":
             metadata.update({
                 "model_family": "GRU_0808_50dim", "seed": 1, "epoch": 1500,
