@@ -59,13 +59,14 @@ class RateMaps():
 
     def calculate_rate_maps(self, latent_activity:np.array):
         """
-        Args:
+        入力:サンプル全体における各ユニットの活動率
         latent_activity (np.array): (samples, n_units)
-            Activity rate for each unit over samples.
 
-        Returns:
+        出力:
         rate_maps (np.array): (n_units, n_samples_pos, n_samples_pos)
-            Array of rate maps, one for each unit.
+        ユニットごとの2次元活動マップ
+        occ_smoothed (np.array): (n_samples_pos, n_samples_pos)
+        gaussian smoothinされた各位置についての訪問頻度
         """
         rate_maps, occ_smoothed = get_smooth_rate_map(
             latent_activity,
@@ -170,7 +171,7 @@ class RateMaps():
 
     def rate_maps_field_detection(self, rate_maps:np.array, rate_maps_1:np.array, rate_maps_2:np.array):
         """
-        Detect the fields for the rate maps.
+        場所選択的な活動領域を検出し、ユニットごとの数と領域のリストを返す
 
         Args:
         rate_maps (np.array): (n_units, n_samples_pos, n_samples_pos) Array of rate maps.

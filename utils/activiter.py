@@ -218,16 +218,12 @@ class RNNActiviter():
                 else 1
             )
             expected_dim = self.args.latent_dim + self.args.stoch_dim * n_class
+        elif architecture == 'mtrssm':
+            expected_dim = self.args.latent_dim + self.args.higher_latent_dim
+        elif architecture == 'crssmv4':
+            expected_dim = self.args.latent_dim + self.args.coarse_dim
         else:
-            expected_dim = (
-                self.args.latent_dim + (
-                self.args.higher_latent_dim
-                if architecture == 'mtrssm'
-                else self.args.coarse_dim
-                )
-                if architecture in {'mtrssm', 'crssmv4'}
-                else self.args.latent_dim
-            )
+            expected_dim = self.args.latent_dim
         if recurrent_activity.shape[-1] != expected_dim:
             raise ValueError(
                 f'Expected {expected_dim} recurrent units for {architecture}, '
@@ -280,7 +276,7 @@ class RNNActiviter():
             latent_activity_half2, positions_half2, thetas_half2
 
     def trajectory_heatmap(self, positions):
-        """軌跡の位置占有ヒートマップを作成し、解析ディレクトリへ保存する。"""
+        """軌跡の位置ヒートマップを作成し、解析ディレクトリへ保存する。"""
         plot_trajectory_heatmap(self.exp_dir, positions, n_bins=25)
         
 
@@ -329,6 +325,10 @@ class RNNActiviter():
         n_fields, rm_fields = rm_helper.rate_maps_field_detection(rate_maps, rm_half1, rm_half2)
         np.save(os.path.join(exp_dir_place, 'n_fields.npy'), n_fields)
 
+        # single_field_dim：ユニットごとの平均フィールド面積
+        # rm_flipped:Rate mapを上下左右に反転させて重ね合わせたもの
+        # rm_vs_hd:頭部方向ごとのRate map
+        # rm_vs_hd_stability:通常のRate mapと方向別Rate mapの平均相関
         single_field_dim = []
         for fields in rm_fields:
             if fields:
@@ -349,6 +349,9 @@ class RNNActiviter():
 
         indices_place_cells = rm_helper.get_place_cells_indices(rate_maps, si_r)
 
+        # place cells N fields:Place cell候補1ユニットあたりに検出されたfield数の平均
+        # place cells field dim:place cell候補のfieldの平均面積
+        # place cells stability:place cell候補のrate mapがデータ2つの部分でどれだけ再現されるかを表す平均
         if len(indices_place_cells) > 0 and self.args.wandb:
             wandb.log({
                 WANDB_METRICS_PREFIX+'place cells N fields': float(np.nanmean(n_fields[indices_place_cells])),
