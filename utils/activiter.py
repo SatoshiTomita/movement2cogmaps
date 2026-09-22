@@ -11,8 +11,10 @@ from utils.plots import plot_trajectory_heatmap
 
 
 class RNNActiviter():
-    """学習後の解析を担当するクラス sRSAなど"""
+    """学習済み再帰モデルの潜在活動と空間表現を解析・保存するクラス。"""
+
     def __init__(self, args, data_dir, device, model_name, exp_dir):
+        """解析設定、実行デバイス、モデル名、結果保存先を初期化する。"""
         self.args = args
         self.data_dir = data_dir
         self.device = device
@@ -22,6 +24,7 @@ class RNNActiviter():
         self.init_default_args()
 
     def init_default_args(self):
+        """古い実験設定にも対応できるよう、未設定の解析引数を補完する。"""
         if self.args.behaviour_act is None:
             self.args.behaviour_act = self.args.behaviour
         # Kept for compatibility with configurations saved before this option
@@ -30,6 +33,7 @@ class RNNActiviter():
             self.args.activity_transform = 'identity'
 
     def redefine_exp_dir(self):
+        """解析条件を名前に含めた結果保存ディレクトリを作成する。"""
         dir_name = f"act_{self.args.behaviour_act}_epoch{self.args.epoch_act}"
         if self.args.activity_transform != 'identity':
             # GRUの活性化関数はtanhで出力が負になる可能性がある
@@ -45,6 +49,10 @@ class RNNActiviter():
         print(f"\n[+] Created activity directory\n\t{self.exp_dir}")
 
     def load_model(self):
+        """指定エポックまたは最新エポックの学習済みモデルを読み込む。
+
+        モデル本体、読み込んだエポック番号、解析結果の保存先を返す。
+        """
         import re
 
         if self.args.epoch_act is not None:
@@ -70,6 +78,11 @@ class RNNActiviter():
     def extract_latent_activity(
         self, rnn, dataloader, trainer_bptt, save_output=True
     ):
+        """モデルを評価し、潜在活動・位置・頭部方向・検証損失を抽出する。
+
+        設定に応じて潜在活動を変換し、``save_output`` が真なら抽出結果も
+        解析ディレクトリへ保存する。
+        """
         self.args.clip_value = None
 
         vloss_dict, latent_activity, positions, thetas, _, _, _ =\
@@ -122,7 +135,12 @@ class RNNActiviter():
         return latent_activity, positions, thetas, vloss_dict
 
     def select_recurrent_activity(self, latent_activity, save_output=False):
-        """Select deterministic recurrent states for cell-like unit analyses."""
+        """モデルの潜在状態からPlace/HD cell解析に使う状態を選択する。
+
+        RSSMでは通常は決定論的状態hだけを選択し、``combined`` 指定時は
+        hと確率的状態zの両方を使用する。階層モデルでは各階層の
+        決定論的状態を結合する。
+        """
         architecture = getattr(self.args, 'architecture', 'rnn')
         cell_source = getattr(
             self.args, 'cell_activity_source', 'deterministic'
@@ -229,6 +247,11 @@ class RNNActiviter():
         return recurrent_activity
     
     def split_data(self, latent_activity, positions, thetas):
+        """活動・位置・頭部方向を2群に分け、表現の安定性評価用データを作る。
+
+        複数の系列を利用できる場合は系列単位で、それ以外は時間方向の
+        前半と後半に分割し、各配列のサンプル軸を平坦化して返す。
+        """
         # generate a meaningful split to calculate the cells stability later
 
         # if there are more than 1 seed for validation, split experiments by seed
@@ -257,6 +280,7 @@ class RNNActiviter():
             latent_activity_half2, positions_half2, thetas_half2
 
     def trajectory_heatmap(self, positions):
+        """軌跡の位置占有ヒートマップを作成し、解析ディレクトリへ保存する。"""
         plot_trajectory_heatmap(self.exp_dir, positions, n_bins=25)
         
 
@@ -266,6 +290,11 @@ class RNNActiviter():
         positions, pos_half1, pos_half2,
         thetas
     ):
+        """潜在ユニットの位置選択性を解析し、Place cell候補を抽出する。
+
+        Rate map、空間情報量SIr、前半・後半の安定性、発火場、頭部方向別の
+        Rate mapを計算して保存し、それらの指標とPlace cell候補を返す。
+        """
         exp_dir_place = os.path.join(self.exp_dir, 'place')
         os.makedirs(exp_dir_place, exist_ok=True)
 
@@ -330,6 +359,7 @@ class RNNActiviter():
         return rate_maps, si_r, indices_place_cells, n_fields, rm_stability, single_field_dim, rm_vs_hd, rm_vs_hd_stability
     
     def save_place_plots(self, rate_maps, si_r, indices_place_cells, indices_hd_cells, indices_conjunctive_cells):
+        """Rate map、SIr分布、セル分類を示すPlace関連の図を保存する。"""
         rm_plotter = RateMapsPlotter(self.exp_dir, wandb_log=self.args.wandb)
         rm_plotter.average_rate_map(rate_maps)
         rm_plotter.metric_histogram(si_r, "Spatial Information (SIr)")
@@ -344,6 +374,11 @@ class RNNActiviter():
         thetas, thet_half1, thet_half2,
         positions
     ):
+        """潜在ユニットの方向選択性を解析し、HD cell候補を抽出する。
+
+        Polar map、方向情報量SId、RVL、選好方向、前半・後半の安定性、
+        位置別のPolar mapを計算して保存し、各指標とHD cell候補を返す。
+        """
         exp_dir_hd = os.path.join(self.exp_dir, 'hd')
         os.makedirs(exp_dir_hd, exist_ok=True)
 
@@ -390,6 +425,7 @@ class RNNActiviter():
         return polar_maps, si_d, rvl, rvangle, indices_hd_cells, pm_stability, pm_vs_place, pm_vs_place_stability
     
     def save_hd_plots(self, polar_maps, si_d, rvl, rvangle, indices_place_cells, indices_hd_cells, indices_conjunctive_cells):
+        """Polar map、SId・RVL分布、セル分類を示すHD関連の図を保存する。"""
         pm_plotter = PolarMapsPlotter(self.exp_dir, PolarMaps.get_thetas_ticks(), wandb_log=self.args.wandb)
         pm_plotter.average_polar_map(polar_maps)
         pm_plotter.metric_histogram(si_d, "Spatial Information (SId)")
@@ -405,6 +441,11 @@ class RNNActiviter():
         rate_maps, rm_vs_hd, rm_vs_hd_stability,
         polar_maps, pm_vs_place, pm_vs_place_stability
     ):
+        """Place/HD候補を排他的なPlace・HD・Conjunctive cellに分類する。
+
+        各分類のインデックスを保存し、位置表現と方向表現の相互依存を示す
+        Rate map・Polar mapも描画する。
+        """
         indices_conjunctive_cells = np.intersect1d(indices_pc, indices_hdc)
         total_units = rate_maps.shape[0]
         
@@ -450,6 +491,11 @@ class RNNActiviter():
         return indices_place_cells, indices_hd_cells, indices_conjunctive_cells
 
     def pos_hd_decoding(self, lact_h1, lact_h2, pos_h1, pos_h2, thet_h1, thet_h2):
+        """潜在状態から位置と頭部方向を線形回帰し、汎化誤差を計算する。
+
+        第1群で回帰器を学習して第2群を予測し、位置誤差と方向誤差を
+        保存して返す。
+        """
         from sklearn.linear_model import LinearRegression
 
         labels_h1 = np.concatenate([pos_h1, thet_h1[..., None]], -1)
@@ -478,6 +524,11 @@ class RNNActiviter():
         return pos_dec_err, thet_dec_err
 
     def calculate_sRSA(self, lact, pos):
+        """潜在空間と物理空間の距離構造の類似度（sRSA）を計算する。
+
+        各系列について、潜在状態間のコサイン距離と位置間のユークリッド
+        距離のSpearman相関を求め、その平均値を返す。
+        """
         from scipy.spatial.distance import cosine, euclidean
         from scipy.stats import spearmanr
 
@@ -511,6 +562,10 @@ class RNNActiviter():
 
     @staticmethod
     def calculate_isomap(lact, pos, seed=0):
+        """潜在活動をサブサンプリングしてIsomapで2次元に埋め込む。
+
+        埋め込み座標と、それに対応する実空間上の位置を返す。
+        """
         from sklearn.manifold import Isomap
 
         np.random.seed(seed)
@@ -536,6 +591,7 @@ class RNNActiviter():
         indices_hdc, pm_stability, pm_vs_place_stability,
         indices_cc,
     ):
+        """解析で得た損失、セル数、誤差、空間指標をsummary.txtへ保存する。"""
         with open(os.path.join(self.exp_dir, f'summary.txt'), 'w') as f:
             # n_fields has one entry for every recurrent unit included in the
             # spatial cell analysis.

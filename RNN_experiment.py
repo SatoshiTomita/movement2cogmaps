@@ -29,6 +29,7 @@ from utils.activiter import RNNActiviter
 
 
 def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
+    """学習済みモデルの潜在状態から空間表現を解析し、結果を保存する。"""
     print()
     print(
         '''
@@ -38,24 +39,35 @@ def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
         '''
     )
 
+    # 学習時の設定とモデル名を引き継いだ解析用オブジェクトを作る。
+    # 以降の数値計算とファイル保存は主に RNNActiviter が担当する。
     model_name = trainer.get_model_name()
     activiter = RNNActiviter(trainer.get_args(), DATA_DIR, DEVICE, model_name, exp_dir)
 
+    # --epoch_act で指定されたエポック（未指定なら最新）の学習済みモデルを
+    # 読み込み、解析結果を保存する act_<behaviour>_epoch<epoch> ディレクトリを作る。
     rnn, epoch, exp_dir_act = activiter.load_model()
 
+    # 解析用データをモデルに通し、各時刻の潜在状態・位置・頭部方向を得る。
+    # RSSM の latent_activity には決定論的状態 h と確率的状態 z が含まれる。
+    # vloss_dict は、このデータに対する検証損失を保持する。
     print(f"\n[+] Extracting latent activity from the model", flush=True)
     latent_activity, positions, thetas, vloss_dict = activiter.extract_latent_activity(
         rnn, dataloader_act, bptt_trainer
     )
 
+    # Rate map / polar map の安定性を評価するため、データを2群に分割する。
+    # 複数系列がある場合は系列単位、それ以外は時間方向の前半・後半に分ける。
     print("\n[*] Split the data to calculate cells stability later")
     (
         latent_activity_half1, positions_half1, thetas_half1,
         latent_activity_half2, positions_half2, thetas_half2
     ) = activiter.split_data(latent_activity, positions, thetas)
 
-    # Cell-like unit analyses use only deterministic recurrent states. Keep
-    # the complete latent state for representation-level decoding and sRSA.
+    # Place cell・HD cell解析に使う状態だけを切り出す。
+    # RSSMではデフォルトで決定論的状態 h のみを使い、
+    # --cell-activity-source combined の場合は h と z の両方を使う。
+    # 一方、sRSAと線形デコーディングには完全な latent_activity を残して使う。
     recurrent_activity = activiter.select_recurrent_activity(
         latent_activity, save_output=True
     )
@@ -66,12 +78,15 @@ def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
         latent_activity_half2
     )
 
+    # 位置間の距離と潜在状態間の距離の Spearman 相関（sRSA）を計算する。
+    # 値が大きいほど、物理空間と潜在表現の距離構造がよく対応している。
     print("\n[+] Calculating sRSA", end='', flush=True)
     s = time.time()
     sRSA = activiter.calculate_sRSA(latent_activity, positions)
     print(f" (time elapsed: {(time.time() - s)/60:.1f} minutes)", flush=True)
 
-    # we now reshape everything because we don't care about seeds/experiments anymore
+    # ここから先のセル解析では系列の区別が不要なため、
+    # 「系列 × 時刻」を1つのサンプル軸にまとめる。
     latent_activity = latent_activity.reshape(-1, latent_activity.shape[-1])
     recurrent_activity = recurrent_activity.reshape(
         -1, recurrent_activity.shape[-1]
@@ -84,8 +99,11 @@ def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
         f"[*] Position and HD data: {positions.shape}, {thetas.shape}"
     )
 
+    # 現状は進捗メッセージだけで、trajectory_heatmap() は呼び出していない。
     print("\n[+] Plotting trajectory heatmap")
 
+    # 位置ごとに活動を集計して Rate map を作り、空間情報量 SIr、
+    # 前半・後半の安定性、発火場の数・大きさ、Place cell候補を計算する。
     print("\n[+] Extracting RNN place activity from hidden units", flush=True)
     rate_maps, si_r, indices_place_cells, n_fields, rm_stability, rm_single_field_dim, rm_vs_hd, rm_vs_hd_stability = activiter.rnn_place_activity(
         recurrent_activity, recurrent_activity_half1, recurrent_activity_half2,
@@ -93,6 +111,8 @@ def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
         thetas
     )
 
+    # 頭部方向ごとに活動を集計して Polar map を作り、方向情報量 SId、
+    # Resultant Vector Length (RVL)、安定性、HD cell候補を計算する。
     print("\n[+] Extracting RNN head direction activity from hidden units", flush=True)
     polar_maps, si_d, rvl, rvangle, indices_hd_cells, pm_stability, pm_vs_place, pm_vs_place_stability = activiter.rnn_hd_activity(
         recurrent_activity, recurrent_activity_half1, recurrent_activity_half2,
@@ -100,12 +120,16 @@ def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
         positions
     )
 
+    # データ前半の完全な潜在状態から位置と頭部方向を予測する線形回帰を学習し、
+    # 後半のデータで位置誤差と方向誤差を評価する。
     print("\n[+] Calculating position and HD decoding errors", flush=True)
     pos_dec_err, thet_dec_err = activiter.pos_hd_decoding(
         latent_activity_half1, latent_activity_half2,
         positions_half1, positions_half2, thetas_half1, thetas_half2
     )
 
+    # Place cell候補とHD cell候補の重なりをConjunctive cellとし、
+    # Placeのみ・HDのみ・両方の3種類に分類してインデックスを保存する。
     print("\n[+] Analyzing selected units", flush=True)
     indices_place_cells, indices_hd_cells, indices_conjunctive_cells = activiter.selected_units_analysis(
         indices_place_cells, indices_hd_cells,
@@ -113,6 +137,7 @@ def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
         polar_maps, pm_vs_place, pm_vs_place_stability
     )
     
+    # Rate map、Polar map、各指標のヒストグラムを画像として保存する。
     print("\n[+] Plotting activity results")
     print("\tPlotting place-related activity")
     activiter.save_place_plots(
@@ -121,6 +146,8 @@ def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
     activiter.save_hd_plots(
         polar_maps, si_d, rvl, rvangle, indices_place_cells, indices_hd_cells, indices_conjunctive_cells)
 
+    # 損失、セル数、デコーディング誤差、sRSA、安定性などを
+    # summary.txt にまとめる（設定時には Weights & Biases にも記録する）。
     print("\n[+] Summary\n")
     activiter.save_summary(
         vloss_dict, pos_dec_err, thet_dec_err, sRSA,

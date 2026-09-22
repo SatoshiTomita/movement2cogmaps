@@ -197,3 +197,14 @@ for seed in 1 2 3; do
     --clean-old-checkpoints
 done
 
+CUDA_VISIBLE_DEVICES=2 .venv311/bin/python RNN_experiment.py   --architecture rssm   --curriculum crawl,walk,run,adult   --env box_messy   --latent_dim 128   --stoch_dim 8   --stoch_dist categorical   --stoch_n_class 8   --nonlinearity sigmoid   --name_prefix rssm_sigmoid   --wandb
+
+//R_stasの統計を行うコマンド(rssm)
+PATH="$HOME/.local/envs/r-stats/bin:$PATH" \
+RETICULATE_PYTHON="$HOME/.local/envs/r-stats/bin/python" \
+"$HOME/.local/envs/r-stats/bin/python" R_stats/export_model_stats.py \
+  --cases RSSM_combined \
+  --rssm-model RSSM_rssm_sigmoid_ft_lat128_stoch8rssm_nlsigmoid_cat8 \
+  --rssm-transform minmax \
+  --output-root R_stats/rssm_sigmoid_ft_results \
+  --run-r
