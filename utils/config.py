@@ -19,6 +19,7 @@ def load_config(path: str) -> DictConfig:
 @dataclass
 class RNNConfig:
     bias: bool = True
+    nonlinearity: Literal["tanh", "relu", "sigmoid"] = "tanh"
 
 
 @dataclass
@@ -465,6 +466,7 @@ class SRGANConfig:
 @dataclass
 class RNNConfig:
     bias: bool = True
+    nonlinearity: Literal["tanh", "relu", "sigmoid"] = "tanh"
     
 
 @dataclass

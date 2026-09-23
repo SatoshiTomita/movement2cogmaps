@@ -57,14 +57,45 @@ class CellBase(pl.LightningModule):
 
 class RNNCell(CellBase):
     def __init__(
-        self, input_dim: int, hidden_dim: int, init_from_: int = 0, **kwargs
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        init_from_: int = 0,
+        nonlinearity: str = "tanh",
+        **kwargs,
     ) -> None:
-        super().__init__(hidden_dim, init_from_)
+        if nonlinearity not in {"tanh", "relu", "sigmoid"}:
+            raise ValueError(
+                "RNNCell nonlinearity must be 'tanh', 'relu', or "
+                f"'sigmoid', but got {nonlinearity!r}"
+            )
+
+        # 観測から作る初期状態にも、再帰更新と同じsigmoidを適用する。
+        # tanh/reluでは従来どおりCellBaseのtanh初期化を維持する。
+        super().__init__(
+            hidden_dim,
+            init_from_,
+            apply_tanh=nonlinearity != "sigmoid",
+        )
+        if nonlinearity == "sigmoid" and isinstance(init_from_, int):
+            self.initializer[-1] = nn.Sigmoid()
 
         self.hidden_dim = hidden_dim
         self.input_dim = input_dim
+        self.nonlinearity = nonlinearity
 
-        self.rnn = nn.RNNCell(input_dim, hidden_dim, **kwargs)
+        # nn.RNNCellはtanh/reluのみを直接サポートする。sigmoidの場合も
+        # 同じパラメータ構造を使えるよう、セル自体はtanhとして生成し、
+        # forwardで線形変換後にsigmoidを明示的に適用する。
+        torch_nonlinearity = (
+            nonlinearity if nonlinearity in {"tanh", "relu"} else "tanh"
+        )
+        self.rnn = nn.RNNCell(
+            input_dim,
+            hidden_dim,
+            nonlinearity=torch_nonlinearity,
+            **kwargs,
+        )
 
         self.obs_dim = init_from_
 
@@ -74,6 +105,19 @@ class RNNCell(CellBase):
         return hidden_state
 
     def forward(self, inputs, prev_hidden):
+        if getattr(self, "nonlinearity", "tanh") == "sigmoid":
+            input_projection = F.linear(
+                inputs,
+                self.rnn.weight_ih,
+                self.rnn.bias_ih,
+            )
+            hidden_projection = F.linear(
+                prev_hidden,
+                self.rnn.weight_hh,
+                self.rnn.bias_hh,
+            )
+            return torch.sigmoid(input_projection + hidden_projection)
+
         hidden_state = self.rnn(inputs, prev_hidden)
 
         return hidden_state
@@ -81,7 +125,12 @@ class RNNCell(CellBase):
 
 class GRUCell(CellBase):
     def __init__(
-        self, input_dim: int, hidden_dim: int, init_from_: int = 0, **kwargs
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        init_from_: int = 0,
+        nonlinearity: str = None,
+        **kwargs,
     ) -> None:
         super().__init__(hidden_dim, init_from_)
 

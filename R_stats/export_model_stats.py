@@ -68,7 +68,8 @@ def activity_dir(args, model, stage):
                       and canonical(p.name) == canonical(args.rssm_model)]
         if len(candidates) != 1:
             raise ValueError(f"Expected one {args.rssm_model}/{stage}; found {candidates}")
-        return candidates[0] / f"act_{stage}_epoch1500_{args.rssm_transform}_cells-combined"
+        return candidates[0] / (f"act_{stage}_epoch{args.rssm_epoch}_"
+                                f"{args.rssm_transform}_cells-combined")
     candidates = [p for p in base.glob("*/*") if p.is_dir() and (
         p.name == f"GRU_0720_267dim_{stage}" if model == "gru"
         else p.name.startswith("RSSM_rssm_baseline_")
@@ -138,6 +139,8 @@ def main():
     parser.add_argument("--cases", nargs="+", choices=list(state_indices()),
                         help="Export only these cases (default: GRU267/RSSM/CRSSMV4). GRU50_hidden, GRU_0907_100dim_hidden and RNN_0716_hidden are opt-in; GRU50 uses saved crawl-input evaluations; precise = lower; coarse = upper.")
     parser.add_argument("--rssm-model", help="Exact RSSM directory name (_ft is optional); requires --cases RSSM_...")
+    parser.add_argument("--rssm-epoch", type=int, default=1500,
+                        help="Activity epoch for --rssm-model (default: 1500)")
     parser.add_argument("--rssm-transform", choices=("minmax", "halfshift"), default="minmax",
                         help="Saved activity transform for --rssm-model (default: minmax)")
     args = parser.parse_args()
@@ -157,8 +160,12 @@ def main():
     if args.rssm_model:
         if not args.cases or any(model != "rssm" for model, _ in cases.values()):
             parser.error("--rssm-model requires selecting only RSSM cases with --cases")
+        if args.rssm_epoch <= 0:
+            parser.error("--rssm-epoch must be a positive integer")
         if args.output_root.resolve() == (ROOT / "R_stats/selected_models").resolve():
             parser.error("Use a separate --output-root for --rssm-model to preserve the baseline results")
+    elif args.rssm_epoch != 1500:
+        parser.error("--rssm-epoch requires --rssm-model")
     rscript = shutil.which("Rscript")
     if args.run_r and rscript is None:
         parser.error("Rscript is unavailable. Install R, DescTools and reticulate, or omit --run-r to export inputs only.")
@@ -186,6 +193,7 @@ def main():
             "activity_transform": activity_transform(args, model),
             "activity_directories": provenance[model],
             "rssm_model": args.rssm_model if model == "rssm" else None,
+            "rssm_epoch": args.rssm_epoch if model == "rssm" and args.rssm_model else None,
             "crssmv4_latents": args.latents if model == "crssmv4" else None,
             "real_data_directory": str(args.real_data.resolve()),
             "scope": "SIr/SId/RVL by unit; original real-data tests retained",

@@ -412,6 +412,9 @@ class RNNActiviter():
             print(f"\t{e}\n")
             pass
 
+        # pm_vs_place：場所ごとの頭部方向活動
+        # pm_vs_place_stability：頭部方向活動表現が場所によらず同じになるか
+        # HD cells stability:頭部方向表現が時間を跨いで再現されるか
         print("\tCalculating polar maps vs place")
         pm_vs_place = pm_helper.calculate_pm_vs_place(latent_activity, positions, self.args.env_dim)
         pm_vs_place_stability = pm_helper.pm_vs_place_stability(polar_maps, pm_vs_place)
@@ -496,7 +499,7 @@ class RNNActiviter():
     def pos_hd_decoding(self, lact_h1, lact_h2, pos_h1, pos_h2, thet_h1, thet_h2):
         """潜在状態から位置と頭部方向を線形回帰し、汎化誤差を計算する。
 
-        第1群で回帰器を学習して第2群を予測し、位置誤差と方向誤差を
+        第1群で回帰器を学習して第2群を予測し、位置誤差(Pos decoding)と方向誤差(Thet decoding)を
         保存して返す。
         """
         from sklearn.linear_model import LinearRegression

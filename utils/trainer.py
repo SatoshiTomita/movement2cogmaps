@@ -61,6 +61,8 @@ class RNNTrainer():
                 f'_lat{args["latent_dim"]}_stoch{args["stoch_dim"]}'+
                 "rssm"
             )
+            if architecture == 'rssm':
+                model_name += f'_nl{args["nonlinearity"]}'
             if architecture == 'mtrssm':
                 model_name += (
                     f'_hlat{args["higher_latent_dim"]}'
@@ -542,7 +544,10 @@ class RNNTrainer():
                 init_from_="obs",
                 init_with_="posterior",
                 rnn_name="RNN",
-                rnn_cfg=RNNConfig(bias=bool(self.args.bias)),
+                rnn_cfg=RNNConfig(
+                    bias=bool(self.args.bias),
+                    nonlinearity=self.args.nonlinearity,
+                ),
             )
             rnn = RSSMPredictor(
                 obs_dim=scene_dim,
