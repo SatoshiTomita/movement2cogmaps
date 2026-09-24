@@ -23,9 +23,16 @@ class DiscountLoss(torch.nn.Module):
         n_future_pred: Number of future prediction steps.
     """
 
-    def __init__(self, loss_fn, discount_factor, n_future_pred):
+    def __init__(
+        self,
+        loss_fn,
+        discount_factor,
+        n_future_pred,
+        sum_features=False,
+    ):
         super().__init__()
         self.loss_fn = loss_fn
+        self.sum_features = sum_features
 
         self.pow = torch.nn.parameter.Parameter(
             torch.pow(discount_factor, torch.arange(n_future_pred)),
@@ -43,4 +50,8 @@ class DiscountLoss(torch.nn.Module):
         if len(loss.shape) > 3:
             loss = torch.mean(loss, dim=(0, 2, 3))
             return torch.sum(loss * self.pow) / self.pow.sum()
+        if self.sum_features:
+            # RSSM [batch, time, flattened pixels].
+            # rssmで画素方向について平均をとるのではなく、sumを取る様にする
+            return loss.sum(dim=-1).mean()
         return torch.mean(loss)

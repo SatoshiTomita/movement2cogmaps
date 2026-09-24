@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import os
+import json
 import wandb
 
 class RNNTrainer():
@@ -115,8 +116,11 @@ class RNNTrainer():
         self.args.seeds_test = list(range(
             n_trials_train+1, n_trials_train+n_trials_test+1
         ))
+        # Keep final activity analysis independent from the validation data
+        # used for loss/activity-based checkpoint selection.
         self.args.seeds_act = list(range(
-            n_trials_train+1, n_trials_train+n_trials_test+n_trials_act+1
+            n_trials_train+n_trials_test+1,
+            n_trials_train+n_trials_test+n_trials_act+1,
         ))
         self.args.seeds_all = self.args.seeds_train + list(np.union1d(self.args.seeds_test, self.args.seeds_act))
 
@@ -294,12 +298,6 @@ class RNNTrainer():
                     rot_velocities_multisubs_test.append(create_multiple_subsampling(rot_velocity, stride, is_velocity=True))
                     positions_multisubs_test.append(create_multiple_subsampling(pos, stride))
                     thetas_multisubs_test.append(create_multiple_subsampling(thet, stride))
-                    
-                    videos_multisubs_act.append(create_multiple_subsampling(video, stride))
-                    velocities_multisubs_act.append(create_multiple_subsampling(velocity, stride, is_velocity=True))
-                    rot_velocities_multisubs_act.append(create_multiple_subsampling(rot_velocity, stride, is_velocity=True))
-                    positions_multisubs_act.append(create_multiple_subsampling(pos, stride))
-                    thetas_multisubs_act.append(create_multiple_subsampling(thet, stride))
                 elif s in self.args.seeds_act:
                     videos_multisubs_act.append(create_multiple_subsampling(video, stride))
                     velocities_multisubs_act.append(create_multiple_subsampling(velocity, stride, is_velocity=True))
@@ -322,12 +320,6 @@ class RNNTrainer():
                     rot_velocities_multisubs_test.append(rot_velocity[None, ...])
                     positions_multisubs_test.append(pos[None, ...])
                     thetas_multisubs_test.append(thet[None, ...])
-
-                    videos_multisubs_act.append(video[None, ...])
-                    velocities_multisubs_act.append(velocity[None, ...])
-                    rot_velocities_multisubs_act.append(rot_velocity[None, ...])
-                    positions_multisubs_act.append(pos[None, ...])
-                    thetas_multisubs_act.append(thet[None, ...])
                 elif s in self.args.seeds_act:
                     videos_multisubs_act.append(video[None, ...])
                     velocities_multisubs_act.append(velocity[None, ...])
@@ -476,6 +468,9 @@ class RNNTrainer():
             torch.nn.L1Loss(reduction='none'),
             discount_factor=self.args.discount_factor,
             n_future_pred=self.args.n_future_pred,
+            # For RSSM, sum reconstruction errors over flattened pixels and
+            # average only over batch samples and time steps.
+            sum_features=getattr(self.args, 'architecture', 'rnn') == 'rssm',
         ).to(self.device)
 
         if self.args.activity_only:
@@ -733,12 +728,37 @@ class RNNTrainer():
             self.args, optimizer, loss_fn, self.device
         )
 
-    def train(self, rnn, bptt_trainer, dl_train, dl_test, lr_sched):
+    def train(
+        self,
+        rnn,
+        bptt_trainer,
+        dl_train,
+        dl_test,
+        lr_sched,
+        activity_evaluator=None,
+    ):
         import time
 
         loss_train_list = []
         loss_test_list = []
         epoch_time_sum = 0
+        activity_history = []
+
+        use_activity_early_stopping = (
+            getattr(self.args, "architecture", "rnn") == "rssm"
+            and getattr(self.args, "activity_early_stopping", False)
+        )
+        if use_activity_early_stopping and activity_evaluator is None:
+            raise ValueError(
+                "activity_evaluator is required for RSSM activity early stopping"
+            )
+
+        best_activity_score = -float("inf")
+        best_activity_epoch = None
+        bad_activity_checks = 0
+        best_activity_path = os.path.join(
+            self.exp_dir, "rnn_best_activity.pth"
+        )
 
         for epoch in range(self.args.epochs):
             start = time.time()
@@ -764,14 +784,112 @@ class RNNTrainer():
                 print(f"\t{epoch_time_sum/(epoch+1):.3f} seconds per epoch")
                 print(flush=True)
 
-            if (epoch+1)%self.args.save_model_every==0:
+            # Activity-based RSSM training keeps one best checkpoint instead
+            # of accumulating periodic epoch checkpoints.
+            if (
+                not use_activity_early_stopping
+                and (epoch+1) % self.args.save_model_every == 0
+            ):
                 print(f"[+] Saving model at epoch {epoch+1}...\n")
                 torch.save(rnn, os.path.join(self.exp_dir, f"rnn_epoch{epoch+1}.pth"))
 
             loss_train_list.append(loss_train)
             loss_test_list.append(loss_test)
+
+            epoch_number = epoch + 1
+            activity_due = (
+                use_activity_early_stopping
+                and epoch_number >= self.args.activity_warmup
+                and (
+                    (epoch_number - self.args.activity_warmup)
+                    % self.args.activity_eval_every
+                    == 0
+                    or epoch_number == self.args.epochs
+                )
+            )
+            if activity_due:
+                metrics = activity_evaluator(rnn)
+                score = metrics["activity_score"]
+                record = {"epoch": epoch_number, **metrics}
+                activity_history.append(record)
+
+                if self.args.wandb:
+                    wandb.log({
+                        f"activity_monitor/{key}": value
+                        for key, value in record.items()
+                    })
+
+                print(
+                    "[*] ACTIVITY MONITOR "
+                    f"epoch {epoch_number}: score={score:.5f}, "
+                    f"SIr={metrics['si_r_mean']:.5f}, "
+                    f"SId={metrics['si_d_mean']:.5f}, "
+                    f"RVL={metrics['rvl_mean']:.5f}"
+                )
+
+                if score > best_activity_score + self.args.activity_min_delta:
+                    best_activity_score = score
+                    best_activity_epoch = epoch_number
+                    bad_activity_checks = 0
+                    # Overwrite one stable checkpoint instead of creating one
+                    # model file for every improvement.
+                    temporary_path = best_activity_path + ".tmp"
+                    torch.save(rnn, temporary_path)
+                    os.replace(temporary_path, best_activity_path)
+                    print(
+                        "[+] Updated best activity checkpoint at "
+                        f"epoch {epoch_number}"
+                    )
+                else:
+                    bad_activity_checks += 1
+                    print(
+                        "[*] Activity score did not improve by at least "
+                        f"{self.args.activity_min_delta:g} "
+                        f"({bad_activity_checks}/{self.args.activity_patience})"
+                    )
+
+                if bad_activity_checks >= self.args.activity_patience:
+                    print(
+                        "[+] Activity early stopping at epoch "
+                        f"{epoch_number}; best epoch was "
+                        f"{best_activity_epoch}"
+                    )
+                    break
         
         np.save(os.path.join(self.exp_dir, 'loss_train.npy'), np.array(loss_train_list))
         np.save(os.path.join(self.exp_dir, 'loss_test.npy'), np.array(loss_test_list))
+
+        if use_activity_early_stopping:
+            if best_activity_epoch is None:
+                # Preserve one usable model if no scheduled check ran, e.g.
+                # after an unusually short run.
+                torch.save(rnn, best_activity_path)
+                best_activity_epoch = len(loss_train_list)
+                best_activity_score = None
+                print(
+                    "[+] No activity check ran; saved the final RSSM as "
+                    "rnn_best_activity.pth"
+                )
+            else:
+                rnn = torch.load(
+                    best_activity_path,
+                    weights_only=False,
+                    map_location=torch.device(self.device),
+                ).to(self.device)
+                print(
+                    "[+] Restored best activity checkpoint from epoch "
+                    f"{best_activity_epoch}"
+                )
+
+            metadata = {
+                "best_epoch": best_activity_epoch,
+                "best_score": best_activity_score,
+                "checks": activity_history,
+            }
+            with open(
+                os.path.join(self.exp_dir, "activity_early_stopping.json"),
+                "w",
+            ) as file:
+                json.dump(metadata, file, indent=2)
 
         return rnn
