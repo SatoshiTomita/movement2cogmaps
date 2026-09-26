@@ -248,9 +248,28 @@ def main(args):
                 config=config_wandb
             )
 
+        activity_evaluator = None
+        if args.architecture == 'rssm' and args.activity_early_stopping:
+            monitor_activiter = RNNActiviter(
+                trainer.get_args(), DATA_DIR, DEVICE,
+                trainer.get_model_name(), exp_dir,
+            )
+
+            def activity_evaluator(model):
+                return monitor_activiter.calculate_monitor_metrics(
+                    model, dataloader_test, bptt_trainer
+                )
+
         print("\n[*] Training model...")
         # ここでRNNの学習を行っている
-        rnn = trainer.train(rnn, bptt_trainer, dataloader_train, dataloader_test, lr_sched)
+        rnn = trainer.train(
+            rnn,
+            bptt_trainer,
+            dataloader_train,
+            dataloader_test,
+            lr_sched,
+            activity_evaluator=activity_evaluator,
+        )
 
         figs = bptt_trainer.plot_test_examples(
             rnn, dataloader_test, n_figures=5, n_examples=6*5,
@@ -314,14 +333,18 @@ if __name__ == '__main__':
         "pre-trained on, separated by commas. Example: crawl,walk. Default is None, training from scratch")
     argparser.add_argument(
         '--name_prefix', type=str, default=None,
-        help="Prefix to the model name. Default is None, i.e. no prefix.")
+        help=(
+            "Optional label added to the model name after the behaviour and "
+            "architecture. Default is None."
+        ))
     argparser.add_argument(
         '--model_name_template', type=str, default=None,
         help=(
             "Optional concise model-name template used for both the checkpoint "
             "directory and W&B run name. Argument fields such as {architecture}, "
             "{latent_dim}, and {behaviour} are available. The template is "
-            "expanded separately at each curriculum stage."
+            "expanded separately at each curriculum stage; the current "
+            "behaviour is automatically prepended when absent."
         ))
     argparser.add_argument(
         '--pretrained_model_folder', type=str, default=None,
@@ -442,6 +465,30 @@ if __name__ == '__main__':
         '--epochs', type=int, default=1_500,
         help="Number of epochs to train the model. Default is 1_500")
     argparser.add_argument(
+        '--activity-early-stopping',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "For RSSM, stop when validation SIr/SId/RVL stop improving. "
+            "Enabled by default; use --no-activity-early-stopping to disable."
+        ),
+    )
+    argparser.add_argument(
+        '--activity-eval-every', type=int, default=50,
+        help="Evaluate RSSM activity metrics every N epochs. Default is 50.")
+    argparser.add_argument(
+        '--activity-warmup', type=int, default=300,
+        help="First epoch eligible for RSSM activity evaluation. Default is 300.")
+    argparser.add_argument(
+        '--activity-patience', type=int, default=5,
+        help="Activity checks without improvement before stopping. Default is 5.")
+    argparser.add_argument(
+        '--activity-min-delta', type=float, default=0.01,
+        help="Minimum activity-score improvement. Default is 0.01.")
+    argparser.add_argument(
+        '--activity-eval-seed', type=int, default=0,
+        help="Fixed RSSM sampling seed used during activity checks. Default is 0.")
+    argparser.add_argument(
         '--seed', type=int, default=1,
         help="Random seed for reproducibility. Default is 1")
     argparser.add_argument(
@@ -495,6 +542,15 @@ if __name__ == '__main__':
     if args.stoch_dist == 'categorical' and args.stoch_n_class < 2:
         raise ValueError("--stoch_n_class must be at least 2 for a categorical latent")
 
+    if args.activity_eval_every < 1:
+        raise ValueError("--activity-eval-every must be positive")
+    if args.activity_warmup < 1:
+        raise ValueError("--activity-warmup must be positive")
+    if args.activity_patience < 1:
+        raise ValueError("--activity-patience must be positive")
+    if args.activity_min_delta < 0:
+        raise ValueError("--activity-min-delta must be non-negative")
+
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
@@ -504,6 +560,7 @@ if __name__ == '__main__':
         # weights from the previous step. Each step saves its own checkpoints.
         prev_exp_dir = None
         requested_behaviour_act = args.behaviour_act
+        requested_epoch_act = args.epoch_act
         for step_idx, behaviour in enumerate(args.curriculum):
             print(
                 f"\n\n########## CURRICULUM STEP {step_idx+1}/{len(args.curriculum)}: "
@@ -513,6 +570,7 @@ if __name__ == '__main__':
             # RNNActiviter resolves a missing behaviour_act in-place. Restore
             # the original choice so the default follows each curriculum step.
             args.behaviour_act = requested_behaviour_act
+            args.epoch_act = requested_epoch_act
             if step_idx == 0:
                 # first step trains from scratch (unless user pinned a folder)
                 args.pretrained_behav = args.pretrained_behav

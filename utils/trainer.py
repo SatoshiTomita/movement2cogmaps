@@ -26,6 +26,19 @@ class RNNTrainer():
         # convert args to dict if it is a Namespace
         args = vars(args) if not isinstance(args, dict) else args
 
+        behaviour = args.get('behaviour')
+        if not behaviour:
+            raise ValueError(
+                'behaviour must be set before defining the model name'
+            )
+
+        def with_behaviour_prefix(model_name):
+            """Ensure checkpoint and W&B names start with the current stage."""
+            prefix = f'{behaviour}_'
+            if model_name == behaviour or model_name.startswith(prefix):
+                return model_name
+            return f'{prefix}{model_name}'
+
         # Evaluate an explicit concise name for every curriculum stage, after
         # RNN_experiment.py has updated ``behaviour`` for that stage. The same
         # name is used for the checkpoint directory and the W&B run.
@@ -42,15 +55,14 @@ class RNNTrainer():
                     '--model_name_template must produce a non-empty file name '
                     'without directory separators'
                 )
-            return model_name
+            return with_behaviour_prefix(model_name)
 
         # argsからモデル名を生成する(デフォルトはrnn)
         architecture = args.get('architecture', 'rnn')
         if architecture in {'gru', 'lstm'}:
             model_name = architecture.upper()
             if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
-            model_name += f'_{args["behaviour"]}'
-            return model_name
+            return with_behaviour_prefix(model_name)
 
         # RSSM variants: RNN-style suffix plus stochastic-latent parameters
         if architecture in {'rssm', 'mtrssm', 'crssmv4'}:
@@ -76,7 +88,7 @@ class RNNTrainer():
                 )
             if args.get('stoch_dist', 'normal') == 'categorical':
                 model_name += f'_cat{args["stoch_n_class"]}'
-            return model_name
+            return with_behaviour_prefix(model_name)
 
         model_name = f'RNN'
         if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
@@ -94,7 +106,7 @@ class RNNTrainer():
             f'_lat{args["latent_dim"]}_nl{args["nonlinearity"]}'+
             f'_hreg{args["hidden_reg"]}_wreg{args["weights_reg"]}_s{args["seed"]:02d}'
         )
-        return model_name
+        return with_behaviour_prefix(model_name)
     
     def init_default_args(self):
         """訓練と評価に必要な初期設定値を定義"""
@@ -448,9 +460,20 @@ class RNNTrainer():
             self.model_name
         ) if self.args.pretrained_model_folder is None else self.args.pretrained_model_folder
 
-        rnn_files = [f for f in os.listdir(load_model_dir) if re.match(r"rnn_epoch\d+\.pth", f)]
-        epoch_max = max([int(re.search(r'\d+', f).group()) for f in rnn_files])
-        load_model_dir = os.path.join(load_model_dir, f"rnn_epoch{epoch_max}.pth")
+        best_activity_path = os.path.join(
+            load_model_dir, "rnn_best_activity.pth"
+        )
+        if os.path.isfile(best_activity_path):
+            load_model_dir = best_activity_path
+        else:
+            rnn_files = [
+                f for f in os.listdir(load_model_dir)
+                if re.match(r"rnn_epoch\d+\.pth", f)
+            ]
+            epoch_max = max([int(re.search(r'\d+', f).group()) for f in rnn_files])
+            load_model_dir = os.path.join(
+                load_model_dir, f"rnn_epoch{epoch_max}.pth"
+            )
         print(f"\n[+] Loading model from {load_model_dir}")
         rnn = torch.load(
             load_model_dir,

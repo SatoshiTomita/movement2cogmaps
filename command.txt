@@ -197,7 +197,7 @@ for seed in 1 2 3; do
     --clean-old-checkpoints
 done
 
-CUDA_VISIBLE_DEVICES=2 .venv311/bin/python RNN_experiment.py   --architecture rssm   --curriculum crawl,walk,run,adult   --env box_messy   --latent_dim 128   --stoch_dim 8   --stoch_dist categorical   --stoch_n_class 8   --nonlinearity sigmoid   --name_prefix rssm_sigmoid   --wandb
+CUDA_VISIBLE_DEVICES=2 .venv311/bin/python RNN_experiment.py   --architecture rssm   --curriculum crawl,walk,run,adult   --env box_messy   --latent_dim 128   --stoch_dim 8   --stoch_dist categorical   --stoch_n_class 8   --nonlinearity sigmoid   --name_prefix rssm_fn=0.1_sigmoid.  --num_workers 8   --free_nats 0.1   --wandb
 
 //R_stasの統計を行うコマンド(rssm)
 PATH="$HOME/.local/envs/r-stats/bin:$PATH" \
@@ -208,3 +208,37 @@ RETICULATE_PYTHON="$HOME/.local/envs/r-stats/bin/python" \
   --rssm-transform minmax \
   --output-root R_stats/rssm_sigmoid_ft_results \
   --run-r
+
+CUDA_VISIBLE_DEVICES=2 .venv311/bin/python RNN_experiment.py \
+  --architecture rssm \
+  --curriculum crawl,walk,run,adult \
+  --env box_messy \
+  --latent_dim 128 \
+  --stoch_dim 8 \
+  --stoch_dist categorical \
+  --stoch_n_class 8 \
+  --nonlinearity sigmoid \
+  --kl_scale 1.0 \
+  --free_nats 3.0 \
+  --prior_future_scale 1.0 \
+  --epochs 1500 \
+  --seed 1 \
+  --num_workers 8 \
+  --name_prefix prior_rssm_sigmoid \
+  --wandb
+
+CUDA_VISIBLE_DEVICES=2 "$PWD/.venv311/bin/python" RNN_experiment.py \
+  --architecture rssm \
+  --name_prefix l1change_rssm_sigmoid \
+  --latent_dim 216 \
+  --epochs 3000 \
+  --stoch_dim 8 \
+  --stoch_dist categorical \
+  --stoch_n_class 8 \
+  --curriculum crawl,walk,run,adult \
+  --env box_messy \
+  --seed 1 \
+  --num_workers 8 \
+  --wandb \
+  --cell-activity-source combined \
+  --no-activity-early-stopping
