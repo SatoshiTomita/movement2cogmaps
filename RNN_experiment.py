@@ -248,18 +248,6 @@ def main(args):
                 config=config_wandb
             )
 
-        activity_evaluator = None
-        if args.architecture == 'rssm' and args.activity_early_stopping:
-            monitor_activiter = RNNActiviter(
-                trainer.get_args(), DATA_DIR, DEVICE,
-                trainer.get_model_name(), exp_dir,
-            )
-
-            def activity_evaluator(model):
-                return monitor_activiter.calculate_monitor_metrics(
-                    model, dataloader_test, bptt_trainer
-                )
-
         print("\n[*] Training model...")
         # ここでRNNの学習を行っている
         rnn = trainer.train(
@@ -268,7 +256,6 @@ def main(args):
             dataloader_train,
             dataloader_test,
             lr_sched,
-            activity_evaluator=activity_evaluator,
         )
 
         figs = bptt_trainer.plot_test_examples(
@@ -465,30 +452,6 @@ if __name__ == '__main__':
         '--epochs', type=int, default=1_500,
         help="Number of epochs to train the model. Default is 1_500")
     argparser.add_argument(
-        '--activity-early-stopping',
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help=(
-            "For RSSM, stop when validation SIr/SId/RVL stop improving. "
-            "Enabled by default; use --no-activity-early-stopping to disable."
-        ),
-    )
-    argparser.add_argument(
-        '--activity-eval-every', type=int, default=50,
-        help="Evaluate RSSM activity metrics every N epochs. Default is 50.")
-    argparser.add_argument(
-        '--activity-warmup', type=int, default=300,
-        help="First epoch eligible for RSSM activity evaluation. Default is 300.")
-    argparser.add_argument(
-        '--activity-patience', type=int, default=5,
-        help="Activity checks without improvement before stopping. Default is 5.")
-    argparser.add_argument(
-        '--activity-min-delta', type=float, default=0.01,
-        help="Minimum activity-score improvement. Default is 0.01.")
-    argparser.add_argument(
-        '--activity-eval-seed', type=int, default=0,
-        help="Fixed RSSM sampling seed used during activity checks. Default is 0.")
-    argparser.add_argument(
         '--seed', type=int, default=1,
         help="Random seed for reproducibility. Default is 1")
     argparser.add_argument(
@@ -542,14 +505,6 @@ if __name__ == '__main__':
     if args.stoch_dist == 'categorical' and args.stoch_n_class < 2:
         raise ValueError("--stoch_n_class must be at least 2 for a categorical latent")
 
-    if args.activity_eval_every < 1:
-        raise ValueError("--activity-eval-every must be positive")
-    if args.activity_warmup < 1:
-        raise ValueError("--activity-warmup must be positive")
-    if args.activity_patience < 1:
-        raise ValueError("--activity-patience must be positive")
-    if args.activity_min_delta < 0:
-        raise ValueError("--activity-min-delta must be non-negative")
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)

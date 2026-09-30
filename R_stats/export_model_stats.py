@@ -24,7 +24,7 @@ STAGES = ("walk", "run", "adult")  # Same three groups as figure 4 / calculate_s
 METRICS = {"sir": "place/si.npy", "sid": "hd/si.npy", "rvl": "hd/rvl.npy"}
 
 
-def state_indices():
+def state_indices(rssm_latent_dim=128, rssm_stoch_flat_dim=64):
     """Actual latent order: lower h, lower z, upper h, upper z."""
     low_h, low_z = np.arange(128), np.arange(128, 192)
     high_h, high_z = np.arange(192, 224), np.arange(224, 240)
@@ -32,8 +32,17 @@ def state_indices():
     cases["GRU50_hidden"] = ("gru50", np.arange(50))
     cases["GRU_0907_100dim_hidden"] = ("gru100", np.arange(100))
     cases["RNN_0716_hidden"] = ("rnn0716", np.arange(500))
+    rssm_h = np.arange(rssm_latent_dim)
+    rssm_z = np.arange(
+        rssm_latent_dim, rssm_latent_dim + rssm_stoch_flat_dim
+    )
+    for source, indices in (
+        ("combined", np.r_[rssm_h, rssm_z]),
+        ("deterministic", rssm_h),
+        ("stochastic", rssm_z),
+    ):
+        cases[f"RSSM_{source}"] = ("rssm", indices)
     for label, model, h, z in (
-        ("RSSM", "rssm", low_h, low_z),
         ("CRSSMV4_all", "crssmv4", np.r_[low_h, high_h], np.r_[low_z, high_z]),
         ("CRSSMV4_precise", "crssmv4", low_h, low_z),
         ("CRSSMV4_coarse", "crssmv4", high_h, high_z),
@@ -63,13 +72,21 @@ def activity_dir(args, model, stage):
         return (base / "world_model_analysis" / f"0824base_{stage}"
                 / f"act_{stage}_checkpoint_cells-combined_latents-{args.latents}")
     if model == "rssm" and args.rssm_model:
-        canonical = lambda name: re.sub(r"_ft(?=_|$)", "", name)
+        def canonical(name):
+            name = re.sub(rf"^{re.escape(stage)}_", "", name)
+            return re.sub(r"_ft(?=_|$)", "", name)
         candidates = [p for p in base.glob("*/*") if p.is_dir()
                       and canonical(p.name) == canonical(args.rssm_model)]
         if len(candidates) != 1:
             raise ValueError(f"Expected one {args.rssm_model}/{stage}; found {candidates}")
-        return candidates[0] / (f"act_{stage}_epoch{args.rssm_epoch}_"
-                                f"{args.rssm_transform}_cells-combined")
+        transform_suffix = (
+            "" if args.rssm_transform == "identity"
+            else f"_{args.rssm_transform}"
+        )
+        return candidates[0] / (
+            f"act_{stage}_epoch{args.rssm_epoch}{transform_suffix}_"
+            "cells-combined"
+        )
     candidates = [p for p in base.glob("*/*") if p.is_dir() and (
         p.name == f"GRU_0720_267dim_{stage}" if model == "gru"
         else p.name.startswith("RSSM_rssm_baseline_")
@@ -91,7 +108,11 @@ def activity_transform(args, model):
 
 def load_inputs(args, models):
     inputs, provenance = {}, {}
-    for model, dimension in (("gru", 267), ("gru50", 50), ("gru100", 100), ("rssm", 192), ("crssmv4", 240), ("rnn0716", 500)):
+    rssm_dimension = (
+        args.rssm_latent_dim
+        + args.rssm_stoch_dim * args.rssm_stoch_n_class
+    )
+    for model, dimension in (("gru", 267), ("gru50", 50), ("gru100", 100), ("rssm", rssm_dimension), ("crssmv4", 240), ("rnn0716", 500)):
         if model not in models:
             continue
         inputs[model], provenance[model] = {}, {}
@@ -141,10 +162,21 @@ def main():
     parser.add_argument("--rssm-model", help="Exact RSSM directory name (_ft is optional); requires --cases RSSM_...")
     parser.add_argument("--rssm-epoch", type=int, default=1500,
                         help="Activity epoch for --rssm-model (default: 1500)")
-    parser.add_argument("--rssm-transform", choices=("minmax", "halfshift"), default="minmax",
+    parser.add_argument("--rssm-transform", choices=("identity", "minmax", "halfshift"), default="minmax",
                         help="Saved activity transform for --rssm-model (default: minmax)")
+    parser.add_argument("--rssm-latent-dim", type=int, default=128,
+                        help="RSSM deterministic state size (default: 128)")
+    parser.add_argument("--rssm-stoch-dim", type=int, default=8,
+                        help="RSSM stochastic-variable count (default: 8)")
+    parser.add_argument("--rssm-stoch-n-class", type=int, default=8,
+                        help="Categories per RSSM stochastic variable (default: 8)")
     args = parser.parse_args()
-    cases = state_indices()
+    if min(args.rssm_latent_dim, args.rssm_stoch_dim, args.rssm_stoch_n_class) <= 0:
+        parser.error("RSSM dimensions must be positive integers")
+    cases = state_indices(
+        args.rssm_latent_dim,
+        args.rssm_stoch_dim * args.rssm_stoch_n_class,
+    )
     if args.cases:
         cases = {name: cases[name] for name in args.cases}
     else:
@@ -194,6 +226,9 @@ def main():
             "activity_directories": provenance[model],
             "rssm_model": args.rssm_model if model == "rssm" else None,
             "rssm_epoch": args.rssm_epoch if model == "rssm" and args.rssm_model else None,
+            "rssm_latent_dim": args.rssm_latent_dim if model == "rssm" else None,
+            "rssm_stoch_dim": args.rssm_stoch_dim if model == "rssm" else None,
+            "rssm_stoch_n_class": args.rssm_stoch_n_class if model == "rssm" else None,
             "crssmv4_latents": args.latents if model == "crssmv4" else None,
             "real_data_directory": str(args.real_data.resolve()),
             "scope": "SIr/SId/RVL by unit; original real-data tests retained",

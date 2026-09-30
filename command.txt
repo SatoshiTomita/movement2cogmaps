@@ -10,11 +10,12 @@ CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
 
   CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
   --architecture lstm \
-  --latent_dim 25 \
-  --name_prefix LSTM0806 \
+  --latent_dim 221 \
+  --name_prefix LSTM0930 \
   --curriculum crawl,walk,run,adult \
   --env box_messy \
   --activity_transform halfshift \
+  --num_workers 8 \
   --wandb
 
  CUDA_VISIBLE_DEVICES=2 python RNN_experiment.py \
@@ -229,16 +230,32 @@ CUDA_VISIBLE_DEVICES=2 .venv311/bin/python RNN_experiment.py \
 
 CUDA_VISIBLE_DEVICES=2 "$PWD/.venv311/bin/python" RNN_experiment.py \
   --architecture rssm \
-  --name_prefix l1change_rssm_sigmoid \
+  --name_prefix kl_scale0.001_rssm \
   --latent_dim 216 \
-  --epochs 3000 \
   --stoch_dim 8 \
   --stoch_dist categorical \
   --stoch_n_class 8 \
   --curriculum crawl,walk,run,adult \
   --env box_messy \
+  --kl_scale 0.001 \
+  --epochs 1500 \
+  --epoch_act 1500 \
   --seed 1 \
   --num_workers 8 \
   --wandb \
-  --cell-activity-source combined \
-  --no-activity-early-stopping
+  --activity_transform identity \
+  --cell-activity-source combined
+
+# 上の学習で各段階に作成した epoch 1500 の活動解析結果を R_stats に出力する。
+PATH="$HOME/.local/envs/r-stats/bin:$PATH" \
+RETICULATE_PYTHON="$HOME/.local/envs/r-stats/bin/python" \
+"$HOME/.local/envs/r-stats/bin/python" R_stats/export_model_stats.py \
+  --cases RSSM_combined RSSM_deterministic RSSM_stochastic \
+  --rssm-model RSSM_kl_scale0.001_rssm_lat216_stoch8rssm_nlsigmoid_cat8 \
+  --rssm-epoch 1500 \
+  --rssm-transform identity \
+  --rssm-latent-dim 216 \
+  --rssm-stoch-dim 8 \
+  --rssm-stoch-n-class 8 \
+  --output-root R_stats/kl_scale0.001_rssm_results \
+  --run-r

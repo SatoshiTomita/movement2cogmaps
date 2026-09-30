@@ -13,6 +13,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.manifold import Isomap
 
+from isomap_colors import (
+    plot_xy_color_reference,
+    position_corner_colors,
+    xy_bounds,
+)
+
 
 def generate_isomap(
     directory: Path,
@@ -24,18 +30,16 @@ def generate_isomap(
     max_neighbors: int,
     seed: int,
 ) -> Path:
-    """Create one Isomap embedding and a position/HD-coloured plot."""
+    """Create an Isomap plot coloured from the four physical-space corners."""
     activity_path = directory / activity_filename
     positions_path = directory / "positions.npy"
-    thetas_path = directory / "thetas.npy"
 
-    for path in (activity_path, positions_path, thetas_path):
+    for path in (activity_path, positions_path):
         if not path.is_file():
             raise FileNotFoundError(f"Required input does not exist: {path}")
 
     activity = np.load(activity_path)
     positions = np.load(positions_path)
-    thetas = np.load(thetas_path)
 
     activity = activity[..., slice_start:slice_stop]
     if activity.shape[-1] == 0:
@@ -46,18 +50,20 @@ def generate_isomap(
 
     activity = activity.reshape(-1, activity.shape[-1])
     positions = positions.reshape(-1, positions.shape[-1])
-    thetas = thetas.reshape(-1)
 
-    if not (len(activity) == len(positions) == len(thetas)):
+    if len(activity) != len(positions):
         raise ValueError(
             f"Sample counts do not match in {directory}: "
-            f"activity={len(activity)}, positions={len(positions)}, "
-            f"thetas={len(thetas)}"
+            f"activity={len(activity)}, positions={len(positions)}"
         )
     if len(activity) < 3:
         raise ValueError(f"Isomap requires at least 3 samples: {directory}")
     if not np.all(np.isfinite(activity)):
         raise ValueError(f"Activity contains NaN or infinity: {activity_path}")
+    if positions.shape[1] < 2 or not np.all(np.isfinite(positions[:, :2])):
+        raise ValueError(
+            f"Positions must contain finite x and y coordinates: {positions_path}"
+        )
 
     n_samples = min(max_samples, len(activity))
     n_neighbors = min(max_neighbors, n_samples - 1)
@@ -66,7 +72,6 @@ def generate_isomap(
 
     activity_sample = activity[indices]
     position_sample = positions[indices]
-    theta_sample = thetas[indices]
 
     print(f"Starting: {directory}", flush=True)
     print(
@@ -85,29 +90,26 @@ def generate_isomap(
 
     np.save(directory / f"{output_stem}_embedding.npy", embedding)
     np.save(directory / f"{output_stem}_positions.npy", position_sample)
-    np.save(directory / f"{output_stem}_thetas.npy", theta_sample)
     np.save(directory / f"{output_stem}_sample_indices.npy", indices)
 
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
-    plots = (
-        (position_sample[:, 0], "viridis", "X position"),
-        (position_sample[:, 1], "viridis", "Y position"),
-        (theta_sample, "hsv", "Head direction"),
+    bounds = xy_bounds([positions])
+    spatial_colors = position_corner_colors(position_sample, bounds)
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
+    plot_xy_color_reference(axes[0], bounds)
+
+    axes[1].scatter(
+        embedding[:, 0],
+        embedding[:, 1],
+        c=spatial_colors,
+        s=5,
+        alpha=0.9,
+        linewidths=0,
+        rasterized=True,
     )
-    for axis, (colors, color_map, title) in zip(axes, plots):
-        scatter = axis.scatter(
-            embedding[:, 0],
-            embedding[:, 1],
-            c=colors,
-            cmap=color_map,
-            s=4,
-            alpha=0.7,
-            rasterized=True,
-        )
-        axis.set_title(title)
-        axis.set_xlabel("Isomap 1")
-        axis.set_ylabel("Isomap 2")
-        fig.colorbar(scatter, ax=axis)
+    axes[1].set_title("Latent state (Isomap)")
+    axes[1].set_xlabel("Isomap 1")
+    axes[1].set_ylabel("Isomap 2")
 
     fig.suptitle(
         f"{directory.parent.name}: "

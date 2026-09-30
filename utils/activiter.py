@@ -49,27 +49,14 @@ class RNNActiviter():
         print(f"\n[+] Created activity directory\n\t{self.exp_dir}")
 
     def load_model(self):
-        """指定エポック、activity-best、または最新モデルを読み込む。"""
+        """指定エポックまたは最新の固定 epoch モデルを読み込む。"""
         import re
 
-        best_activity_path = os.path.join(
-            self.exp_dir, 'rnn_best_activity.pth'
-        )
         if self.args.epoch_act is not None:
             epoch = self.args.epoch_act
             load_model_dir = os.path.join(
                 self.exp_dir, f"rnn_epoch{epoch}.pth"
             )
-        elif os.path.isfile(best_activity_path):
-            metadata_path = os.path.join(
-                self.exp_dir, 'activity_early_stopping.json'
-            )
-            epoch = 'best'
-            if os.path.isfile(metadata_path):
-                with open(metadata_path) as file:
-                    metadata = json.load(file)
-                epoch = metadata.get('best_epoch') or epoch
-            load_model_dir = best_activity_path
         else:
             rnn_files = [
                 filename for filename in os.listdir(self.exp_dir)
@@ -99,21 +86,20 @@ class RNNActiviter():
 
         return rnn, epoch, self.exp_dir
     
-    def extract_latent_activity(
-        self, rnn, dataloader, trainer_bptt, save_output=True, verbose=True
-    ):
+    def extract_latent_activity(self, rnn, dataloader, trainer_bptt, save_output=True):
         """モデルを評価し、潜在活動・位置・頭部方向・検証損失を抽出する。
 
         設定に応じて潜在活動を変換し、``save_output`` が真なら抽出結果も
         解析ディレクトリへ保存する。
         """
+        self.args.clip_value = None
+
         vloss_dict, latent_activity, positions, thetas, _, _, _ =\
             trainer_bptt.test_epoch(rnn, dataloader, for_trajectory=True)
 
         for k, v in vloss_dict.items():
             vloss_dict[k] = float(v)
-            if verbose:
-                print(f"\t{k}: {v:.5f}")
+            print(f"\t{k}: {v:.5f}")
 
         latent_activity = np.concatenate(latent_activity, axis=1)
         positions = np.concatenate(positions, axis=1)
@@ -123,8 +109,7 @@ class RNNActiviter():
             # GRU states can be negative, while the rate-map and polar-map
             # metrics treat their inputs as non-negative activity rates.
             latent_activity = np.logaddexp(0, latent_activity)
-            if verbose:
-                print("\n[*] Applying softplus to latent activity for analysis")
+            print("\n[*] Applying softplus to latent activity for analysis")
         elif self.args.activity_transform == 'minmax':
             # Use one scale per unit across every trajectory and timestep so
             # trajectory boundaries remain comparable for stability and
@@ -139,15 +124,13 @@ class RNNActiviter():
                 out=np.zeros_like(latent_activity),
                 where=unit_range > np.finfo(latent_activity.dtype).eps,
             )
-            if verbose:
-                print(
-                    "\n[*] Applying per-unit min-max scaling to latent "
-                    "activity for analysis"
-                )
+            print(
+                "\n[*] Applying per-unit min-max scaling to latent activity "
+                "for analysis"
+            )
         elif self.args.activity_transform == 'halfshift':
             latent_activity=0.5*latent_activity+0.5
-            if verbose:
-                print("\n[*] Applying halfshift to latent activity for analysis")
+            print("\n[*] Applying halfshift to latent activity for analysis")
             
         if save_output:
             np.save(os.path.join(self.exp_dir, 'latent_activity.npy'), latent_activity)
@@ -160,113 +143,6 @@ class RNNActiviter():
 
         return latent_activity, positions, thetas, vloss_dict
 
-    def calculate_monitor_metrics(self, rnn, dataloader, trainer_bptt):
-        """Calculate lightweight spatial metrics for RSSM early stopping.
-
-        Plotting, map stability, field detection, sRSA, decoding, and file
-        output are intentionally skipped. The score averages clipped,
-        threshold-normalized SIr, SId, and RVL population values.
-        """
-        from utils.spatial_units import RateMaps, PolarMaps
-
-        was_training = rnn.training
-        cuda_devices = []
-        device = torch.device(self.device)
-        if torch.cuda.is_available() and device.type == 'cuda':
-            cuda_devices = [
-                torch.cuda.current_device()
-                if device.index is None else device.index
-            ]
-
-        try:
-            # RSSM posterior states are sampled. Isolate and fix the RNG used
-            # here so checkpoint decisions are repeatable without changing
-            # the random stream used by subsequent training epochs.
-            with torch.random.fork_rng(devices=cuda_devices):
-                evaluation_seed = getattr(self.args, 'activity_eval_seed', 0)
-                # torch.manual_seed covers CPU and CUDA generators. fork_rng
-                # restores the monitored CUDA device after this evaluation.
-                torch.manual_seed(evaluation_seed)
-                latent_activity, positions, thetas, _ = (
-                    self.extract_latent_activity(
-                        rnn,
-                        dataloader,
-                        trainer_bptt,
-                        save_output=False,
-                        verbose=False,
-                    )
-                )
-        finally:
-            rnn.train(was_training)
-
-        recurrent_activity = self.select_recurrent_activity(
-            latent_activity, save_output=False
-        )
-        recurrent_activity = recurrent_activity.reshape(
-            -1, recurrent_activity.shape[-1]
-        )
-        positions = positions.reshape(-1, positions.shape[-1])
-        thetas = thetas.reshape(-1)
-
-        rate_map_helper = RateMaps(positions, self.args.env_dim)
-        rate_maps, position_occupancy = (
-            rate_map_helper.calculate_rate_maps(recurrent_activity)
-        )
-        si_r = rate_map_helper.calculate_metrics(
-            rate_maps.copy(),
-            position_occupancy,
-            norm=self.args.ratemap_norm,
-        )
-
-        polar_map_helper = PolarMaps(thetas)
-        polar_maps, direction_occupancy = (
-            polar_map_helper.calculate_polar_maps(recurrent_activity)
-        )
-        si_d, rvl, _ = polar_map_helper.calculate_metrics(
-            polar_maps.copy(), direction_occupancy
-        )
-
-        def finite_mean(values):
-            values = np.asarray(values)
-            finite = values[np.isfinite(values)]
-            return float(np.mean(finite)) if finite.size else 0.0
-
-        def normalized_population_score(values, threshold):
-            values = np.asarray(values)
-            finite = values[np.isfinite(values)]
-            if not finite.size:
-                return 0.0
-            return float(np.mean(np.clip(finite / threshold, 0.0, 1.0)))
-
-        si_r_score = normalized_population_score(
-            si_r, RateMaps.PLACE_SI_TH
-        )
-        si_d_score = normalized_population_score(
-            si_d, PolarMaps.HD_SI_TH
-        )
-        rvl_score = normalized_population_score(
-            rvl, PolarMaps.HD_RVL_TH
-        )
-
-        return {
-            'activity_score': float(np.mean([
-                si_r_score, si_d_score, rvl_score
-            ])),
-            'si_r_mean': finite_mean(si_r),
-            'si_d_mean': finite_mean(si_d),
-            'rvl_mean': finite_mean(rvl),
-            'place_cell_fraction': float(np.mean(
-                np.isfinite(si_r) & (si_r > RateMaps.PLACE_SI_TH)
-            )),
-            'hd_cell_fraction': float(np.mean(
-                np.isfinite(si_d)
-                & np.isfinite(rvl)
-                & (
-                    (si_d > PolarMaps.HD_SI_TH)
-                    | (rvl > PolarMaps.HD_RVL_TH)
-                )
-            )),
-        }
 
     def select_recurrent_activity(self, latent_activity, save_output=False):
         """モデルの潜在状態からPlace/HD cell解析に使う状態を選択する。
