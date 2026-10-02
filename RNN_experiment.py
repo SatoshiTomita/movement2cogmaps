@@ -301,8 +301,8 @@ if __name__ == '__main__':
         help="Behaviour group of the agent (crawl, walk, run, adult)")
     argparser.add_argument(
         '--architecture', type=str, default='rnn',
-        choices=['rnn', 'gru', 'lstm', 'rssm', 'mtrssm', 'crssmv4'],
-        help="Recurrent architecture (rnn, gru, lstm, rssm, mtrssm, or crssmv4).")
+        choices=['rnn', 'ctrnn', 'gru', 'lstm', 'rssm', 'mtrssm', 'crssmv4'],
+        help="Recurrent architecture (rnn, ctrnn, gru, lstm, rssm, mtrssm, or crssmv4).")
     argparser.add_argument(
         '--curriculum', type=list_of_strings, default=None,
         help="Comma-separated behaviours to train sequentially in a single run, "+\
@@ -372,6 +372,12 @@ if __name__ == '__main__':
         '--latent_dim', type=int, default=500,
         help="Latent dimension of the RNN. For the RSSM this is the "+\
         "deterministic (GRU) state size. Default is 500")
+    argparser.add_argument(
+        '--ctrnn_tau', type=float, default=4.0,
+        help=(
+            "CTRNN time constant in temporally subsampled data steps. "
+            "Must be at least 1. Default is 4."
+        ))
     argparser.add_argument(
         '--stoch_dim', type=int, default=32,
         help="RSSM/MTRSSM: number of stochastic variables. With a normal "
@@ -504,6 +510,9 @@ if __name__ == '__main__':
 
     if args.stoch_dist == 'categorical' and args.stoch_n_class < 2:
         raise ValueError("--stoch_n_class must be at least 2 for a categorical latent")
+
+    if args.architecture == 'ctrnn' and args.ctrnn_tau < 1.0:
+        raise ValueError("--ctrnn_tau must be at least 1 data step")
 
 
     torch.manual_seed(args.seed)

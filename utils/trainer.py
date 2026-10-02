@@ -89,7 +89,7 @@ class RNNTrainer():
                 model_name += f'_cat{args["stoch_n_class"]}'
             return with_behaviour_prefix(model_name)
 
-        model_name = f'RNN'
+        model_name = 'CTRNN' if architecture == 'ctrnn' else 'RNN'
         if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
         if args['pretrained_model_folder'] : model_name += '_ft'
         if args['moredata'] : model_name += f'_moredata{args["moredata"]}'
@@ -105,6 +105,8 @@ class RNNTrainer():
             f'_lat{args["latent_dim"]}_nl{args["nonlinearity"]}'+
             f'_hreg{args["hidden_reg"]}_wreg{args["weights_reg"]}_s{args["seed"]:02d}'
         )
+        if architecture == 'ctrnn':
+            model_name += f'_tau{float(args.get("ctrnn_tau", 4.0)):g}'
         return with_behaviour_prefix(model_name)
     
     def init_default_args(self):
@@ -512,7 +514,23 @@ class RNNTrainer():
             rnn_loaded = self.load_model_pretrained()
 
         # define RNN architecture
-        if getattr(self.args, 'architecture', 'rnn') in {'gru', 'lstm'}:
+        if getattr(self.args, 'architecture', 'rnn') == 'ctrnn':
+            if self.args.n_gridcells > 0:
+                raise NotImplementedError(
+                    "CTRNN architecture does not support grid cells input"
+                )
+            from architectures.recurrent.ctrnn_bptt import CTRNN
+            rnn = CTRNN(
+                self.device,
+                scene_dim + vel_dim,
+                output_dim,
+                latent_dim=self.args.latent_dim,
+                tau=self.args.ctrnn_tau,
+                nonlinearity=self.args.nonlinearity,
+                dropouts=self.args.dropouts,
+                bias=self.args.bias,
+            ).to(self.device)
+        elif getattr(self.args, 'architecture', 'rnn') in {'gru', 'lstm'}:
             if self.args.n_gridcells > 0:
                 raise NotImplementedError(
                     f"{self.args.architecture.upper()} architecture does not support grid cells input"
@@ -702,7 +720,7 @@ class RNNTrainer():
             if mismatches:
                 raise ValueError(
                     'Cannot transfer pretrained weights to a different model '
-                    'architecture. GRU and RNN weights are not interchangeable. '
+                    'architecture. Recurrent architecture weights are not interchangeable. '
                     'Use a checkpoint with the same architecture, or start '
                     'training from crawl without pretrained weights.\n'
                     + '\n'.join(mismatches)
