@@ -259,3 +259,11 @@ RETICULATE_PYTHON="$HOME/.local/envs/r-stats/bin/python" \
   --rssm-stoch-n-class 8 \
   --output-root R_stats/kl_scale0.001_rssm_results \
   --run-r
+
+CUDA_VISIBLE_DEVICES=2 .venv311/bin/python RNN_experiment.py \
+  --architecture ctrnn \
+  --ctrnn_tau 4 \
+  --curriculum crawl,walk,run,adult \
+  --name_prefix 1002 \
+  --num_workers 8 \
+  --wandb
