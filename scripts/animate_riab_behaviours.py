@@ -62,10 +62,16 @@ def render(
     trail = int(trail_seconds * config["FPS"])
     env_dim = config["ENV_DIM"]
 
-    n_cols = math.ceil(math.sqrt(len(seeds) * 1.5))
+    np.savez(
+        out_dir / f"riab_{behaviour}_positions.npz",
+        **{f"seed{s:02d}": pos for s, pos in zip(seeds, trajectories)},
+    )
+
+    n_cols = min(len(seeds), math.ceil(math.sqrt(len(seeds) * 1.5)))
     n_rows = math.ceil(len(seeds) / n_cols)
+    panel = max(1.8, 5.0 / n_cols)
     fig, axes = plt.subplots(
-        n_rows, n_cols, figsize=(1.8 * n_cols, 1.9 * n_rows + 0.4), squeeze=False
+        n_rows, n_cols, figsize=(panel * n_cols, (panel + 0.1) * n_rows + 0.4), squeeze=False
     )
     history_lines, trail_lines, heads = [], [], []
     for ax in axes.flat:

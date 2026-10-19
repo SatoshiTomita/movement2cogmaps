@@ -1,0 +1,309 @@
+Blender 3.6.19 (hash 56679ff9b2b2 built 2024-12-17 01:30:46)
+Read blend: "/home/tomita/movement2cogmaps/simulation/venv_blender/box_messy.blend"
+Fra:1 Mem:21.86M (Peak 21.86M) | Time:00:00.06 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | room_wall1
+Fra:1 Mem:21.86M (Peak 21.86M) | Time:00:00.06 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | triangle
+Fra:1 Mem:21.87M (Peak 21.87M) | Time:00:00.06 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:21.86M (Peak 21.87M) | Time:00:00.06 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:21.87M (Peak 21.87M) | Time:00:00.06 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Fra:1 Mem:21.87M (Peak 40.98M) | Time:00:00.13 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:21.87M (Peak 40.98M) | Time:00:00.13 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:21.88M (Peak 40.98M) | Time:00:00.63 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Procedurals
+Fra:1 Mem:21.88M (Peak 40.98M) | Time:00:00.63 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Background
+Fra:1 Mem:21.88M (Peak 40.98M) | Time:00:00.63 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:21.88M (Peak 40.98M) | Time:00:00.63 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Meshes Flags
+Fra:1 Mem:21.88M (Peak 40.98M) | Time:00:00.63 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:21.88M (Peak 40.98M) | Time:00:00.63 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:21.88M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:21.88M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:21.88M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:21.88M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:21.88M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Scene BVH | Building BVH
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Scene BVH | Packing BVH triangles and strands
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Scene BVH | Packing BVH nodes
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Objects Flags
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:21.89M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Images | Loading floor_texture_darker.webp
+Fra:1 Mem:34.91M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Images | Loading triangle.webp
+Fra:1 Mem:34.91M (Peak 40.98M) | Time:00:00.63 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Images | Loading wall_concrete3.webp
+Fra:1 Mem:195.33M (Peak 195.33M) | Time:00:01.28 | Mem:173.53M, Peak:173.53M | Scene, ViewLayer | Updating Camera Volume
+Fra:1 Mem:195.33M (Peak 195.33M) | Time:00:01.28 | Mem:173.53M, Peak:173.53M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:195.33M (Peak 195.33M) | Time:00:01.28 | Mem:173.53M, Peak:173.53M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:195.33M (Peak 195.33M) | Time:00:01.28 | Mem:173.53M, Peak:173.53M | Scene, ViewLayer | Updating Lights | Computing distribution
+Fra:1 Mem:195.33M (Peak 195.33M) | Time:00:01.28 | Mem:173.53M, Peak:173.53M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:196.33M (Peak 196.33M) | Time:00:01.28 | Mem:174.53M, Peak:174.53M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:196.33M (Peak 196.33M) | Time:00:01.28 | Mem:174.53M, Peak:174.53M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:196.33M (Peak 196.33M) | Time:00:01.28 | Mem:174.53M, Peak:174.53M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:196.33M (Peak 196.33M) | Time:00:01.28 | Mem:174.53M, Peak:174.53M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:196.33M (Peak 196.33M) | Time:00:01.28 | Mem:174.53M, Peak:174.53M | Scene, ViewLayer | Loading denoising kernels (may take a few minutes the first time)
+Fra:1 Mem:209.65M (Peak 215.44M) | Time:00:01.90 | Mem:1319.42M, Peak:1319.42M | Scene, ViewLayer | Sample 0/64
+Fra:1 Mem:210.25M (Peak 215.44M) | Time:00:01.90 | Remaining:00:00.06 | Mem:1320.03M, Peak:1320.03M | Scene, ViewLayer | Sample 1/64
+Fra:1 Mem:210.50M (Peak 215.44M) | Time:00:02.03 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Sample 64/64
+Fra:1 Mem:210.50M (Peak 215.44M) | Time:00:02.03 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Finished
+Saved: '/home/tomita/movement2cogmaps/data_seed27/box/adult/exp_dim0.635_fps10_s720_seed27/box_messy/frame0001.png'
+ Time: 00:02.23 (Saving: 00:00.20)
+
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Initializing
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Waiting for render to start
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Scene
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Shaders
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Background
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Particle Systems
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Meshes
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects Flags
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Images
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera Volume
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lights
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Integrator
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Film
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Baking
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 0/64
+Fra:2 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Remaining:00:00.07 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 1/64
+Fra:2 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Sample 64/64
+Fra:2 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Finished
+Saved: '/home/tomita/movement2cogmaps/data_seed27/box/adult/exp_dim0.635_fps10_s720_seed27/box_messy/frame0002.png'
+ Time: 00:00.05 (Saving: 00:00.04)
+
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Initializing
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Waiting for render to start
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Scene
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Shaders
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Background
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Particle Systems
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Meshes
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects Flags
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Images
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera Volume
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lights
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Integrator
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Film
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Baking
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 0/64
+Fra:3 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Remaining:00:00.07 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 1/64
+Fra:3 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Sample 64/64
+Fra:3 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Finished
+Saved: '/home/tomita/movement2cogmaps/data_seed27/box/adult/exp_dim0.635_fps10_s720_seed27/box_messy/frame0003.png'
+ Time: 00:00.16 (Saving: 00:00.15)
+
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Initializing
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Waiting for render to start
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Scene
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Shaders
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Background
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Particle Systems
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Meshes
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects Flags
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Images
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera Volume
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lights
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Integrator
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Film
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Baking
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 0/64
+Fra:4 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Remaining:00:00.05 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 1/64
+Fra:4 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Sample 64/64
+Fra:4 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Finished
+Saved: '/home/tomita/movement2cogmaps/data_seed27/box/adult/exp_dim0.635_fps10_s720_seed27/box_messy/frame0004.png'
+ Time: 00:00.09 (Saving: 00:00.08)
+
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Initializing
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Waiting for render to start
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Scene
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Shaders
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Background
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Particle Systems
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Meshes
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects Flags
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Images
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera Volume
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lights
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Integrator
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Film
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Baking
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 0/64
+Fra:5 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Remaining:00:00.05 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 1/64
+Fra:5 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Sample 64/64
+Fra:5 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Finished
+Saved: '/home/tomita/movement2cogmaps/data_seed27/box/adult/exp_dim0.635_fps10_s720_seed27/box_messy/frame0005.png'
+ Time: 00:00.10 (Saving: 00:00.10)
+
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Initializing
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Waiting for render to start
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Scene
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Shaders
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Background
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Particle Systems
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Meshes
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects Flags
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Images
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera Volume
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lights
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Integrator
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Film
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Baking
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 0/64
+Fra:6 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Remaining:00:00.05 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 1/64
+Fra:6 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Sample 64/64
+Fra:6 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Finished
+Saved: '/home/tomita/movement2cogmaps/data_seed27/box/adult/exp_dim0.635_fps10_s720_seed27/box_messy/frame0006.png'
+ Time: 00:00.10 (Saving: 00:00.09)
+
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Initializing
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Waiting for render to start
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Scene
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Shaders
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Background
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Particle Systems
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Meshes
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects Flags
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Images
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera Volume
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lights
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Integrator
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Film
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Baking
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 0/64
+Fra:7 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Remaining:00:00.05 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 1/64
+Fra:7 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Sample 64/64
+Fra:7 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Finished
+Saved: '/home/tomita/movement2cogmaps/data_seed27/box/adult/exp_dim0.635_fps10_s720_seed27/box_messy/frame0007.png'
+ Time: 00:00.09 (Saving: 00:00.09)
+
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Initializing
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Waiting for render to start
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Scene
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Shaders
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Background
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Particle Systems
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Meshes
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects Flags
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Images
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera Volume
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lights
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Integrator
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Film
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Baking
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 0/64
+Fra:8 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Remaining:00:00.05 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 1/64
+Fra:8 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Sample 64/64
+Fra:8 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Finished
+Saved: '/home/tomita/movement2cogmaps/data_seed27/box/adult/exp_dim0.635_fps10_s720_seed27/box_messy/frame0008.png'
+ Time: 00:00.12 (Saving: 00:00.11)
+
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Initializing
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Waiting for render to start
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Scene
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Shaders
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Background
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Particle Systems
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Meshes
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects Flags
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Images
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera Volume
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lights
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Integrator
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Film
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Baking
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 0/64
+Fra:9 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Remaining:00:00.05 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 1/64
+Fra:9 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Sample 64/64
+Fra:9 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Finished
+Saved: '/home/tomita/movement2cogmaps/data_seed27/box/adult/exp_dim0.635_fps10_s720_seed27/box_messy/frame0009.png'
+ Time: 00:00.11 (Saving: 00:00.10)
+
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Initializing
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Waiting for render to start
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Scene
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Shaders
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Background
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Particle Systems
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Meshes
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Objects Flags
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Images
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Camera Volume
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lights
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Integrator
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Film
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Lookup Tables
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Baking
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 0/64
+Fra:10 Mem:210.25M (Peak 215.44M) | Time:00:00.00 | Remaining:00:00.05 | Mem:1355.35M, Peak:1355.35M | Scene, ViewLayer | Sample 1/64
+Fra:10 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Sample 64/64
+Fra:10 Mem:210.50M (Peak 215.44M) | Time:00:00.00 | Mem:1355.35M, Peak:1355.95M | Scene, ViewLayer | Finished
+Saved: '/home/tomita/movement2cogmaps/data_seed27/box/adult/exp_dim0.635_fps10_s720_seed27/box_messy/frame0010.png'
+ Time: 00:00.14 (Saving: 00:00.14)
+
+Experiment directory:
+/home/tomita/movement2cogmaps/data_seed27/box/adult/exp_dim0.635_fps10_s720_seed27
+
+
+Frame dimension:
+[128, 64]
+
+Environment dimension:
+0.635
+Environment epsilon:
+0.005
+
+number of frames: 7201
+
+Blender quit

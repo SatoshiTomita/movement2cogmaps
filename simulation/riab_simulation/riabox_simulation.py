@@ -1,16 +1,12 @@
-import platform
-if 'mac' in platform.platform():
-    BASE_DIR = "/Users/USER/vrtopc/"
-    DATA_DIR = "/media/data/vrtopc"
-else:
-    BASE_DIR = "/home/USER/vr_to_pc/"
-    DATA_DIR = "/media/data/vrtopc"
-
 import sys
-sys.path.append(BASE_DIR)
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(REPO_ROOT))
 
 import argparse
 import os
+import shutil
 import yaml
 import numpy as np
 
@@ -18,9 +14,8 @@ from ratinabox.Environment import Environment
 
 from simulation.riab_simulation.utils import run_simulation
 
-SEEDS = range(1, 26 +1)
-
 def main(args):
+    SEEDS = args.seeds
     BEHAVIOUR = args.behaviour
     ENVIRONMENT = args.environment
     SMOOTH_THETA = args.smooth_theta
@@ -31,7 +26,7 @@ def main(args):
     if not SAVE_EXPERIMENT:
         print("\n[!!!] WARNING: not saving the experiment, use --save_experiment flag\n")
 
-    with open(f"{BASE_DIR}/simulation/config.yaml") as f:
+    with open(REPO_ROOT / "simulation/config.yaml") as f:
         config = yaml.safe_load(f)
 
     behaviour_groups = config['BEHAVIOURS']
@@ -53,9 +48,16 @@ def main(args):
     }
 
     EXP_FOLDERS = [
-        os.path.join(DATA_DIR, ENVIRONMENT, BEHAVIOUR, exp_name, "riab_simulation") \
+        os.path.join(args.data_root, ENVIRONMENT, BEHAVIOUR, exp_name, "riab_simulation") \
         for exp_name in EXPERIMENT_NAMES
     ]
+
+    existing = [f for f in EXP_FOLDERS if os.path.exists(os.path.join(f, "positions.npy"))]
+    if SAVE_EXPERIMENT and existing and not args.overwrite:
+        raise FileExistsError(
+            "Refusing to overwrite existing simulations (pass --overwrite to allow):\n"
+            + "\n".join(existing)
+        )
 
     print("Experiment folders:")
     print(EXP_FOLDERS)
@@ -92,7 +94,7 @@ def main(args):
 
         # Copy the config file to each experiment folder
         if SAVE_EXPERIMENT:
-            os.system(f"cp {BASE_DIR}/simulation/config.yaml {'/'.join(exp_folder.split('/')[:-1])}/config.yaml")
+            shutil.copy(REPO_ROOT / "simulation/config.yaml", os.path.join(os.path.dirname(exp_folder), "config.yaml"))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -102,6 +104,12 @@ if __name__ == "__main__":
     parser.add_argument('--increase_fps', type=int, default=50)
 
     parser.add_argument('--save_experiment', action=argparse.BooleanOptionalAction)
+    parser.add_argument(
+        '--data_root', type=Path, default=REPO_ROOT / "data",
+        help='Directory where <environment>/<behaviour>/exp_* folders are written.')
+    parser.add_argument('--seeds', type=int, nargs='+', default=list(range(1, 26 +1)))
+    parser.add_argument('--overwrite', action='store_true',
+                        help='Allow overwriting existing simulations.')
 
     args = parser.parse_args()
 

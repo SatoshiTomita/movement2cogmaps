@@ -233,3 +233,7 @@ violinplot.png
 paper_figures/
 
 memo.txt
+
+# Local tool binaries (Blender)
+tools/
+data_seed27/
