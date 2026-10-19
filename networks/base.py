@@ -22,8 +22,17 @@ class LightningModuleBase(pl.LightningModule):
     ):
         """Rollout training step."""
         loss_dict, *_ = self._shared_step(batch)
-        log_loss_dict = {f"{self.__class__.__name__}/{k}/train": v for k, v in loss_dict.items()} 
-        self.log_dict(log_loss_dict, prog_bar=True, sync_dist=True)
+        log_loss_dict = {
+            f"{self.__class__.__name__}/{key}/train": value
+            for key, value in loss_dict.items()
+        }
+        self.log_dict(
+            log_loss_dict,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            sync_dist=True,
+        )
         return loss_dict
 
     def validation_step(
@@ -39,7 +48,13 @@ class LightningModuleBase(pl.LightningModule):
         with torch.no_grad():
             loss_dict, pred_dict = self._shared_step(batch)
         loss_dict = {f"{self.__class__.__name__}/{k}/val": v for k, v in loss_dict.items()}
-        self.log_dict(loss_dict, prog_bar=True, sync_dist=True)
+        self.log_dict(
+            loss_dict,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            sync_dist=True,
+        )
         if pred_dict is not None:
             return dict(**loss_dict, **pred_dict)
         else:

@@ -301,8 +301,8 @@ if __name__ == '__main__':
         help="Behaviour group of the agent (crawl, walk, run, adult)")
     argparser.add_argument(
         '--architecture', type=str, default='rnn',
-        choices=['rnn', 'ctrnn', 'gru', 'lstm', 'rssm', 'mtrssm', 'crssmv4'],
-        help="Recurrent architecture (rnn, ctrnn, gru, lstm, rssm, mtrssm, or crssmv4).")
+        choices=['rnn', 'ctrnn', 'gru', 'lstm', 'rssm', 'ctrssm', 'oderssm', 'mtrssm', 'crssmv4'],
+        help="Recurrent architecture (rnn, ctrnn, gru, lstm, rssm, ctrssm, oderssm, mtrssm, or crssmv4).")
     argparser.add_argument(
         '--curriculum', type=list_of_strings, default=None,
         help="Comma-separated behaviours to train sequentially in a single run, "+\
@@ -379,6 +379,9 @@ if __name__ == '__main__':
             "Must be at least 1. Default is 4."
         ))
     argparser.add_argument(
+        '--ode_substeps', type=int, default=4,
+        help="RK4 sub-steps per data step for the ODE-RSSM. Default is 4")
+    argparser.add_argument(
         '--stoch_dim', type=int, default=32,
         help="RSSM/MTRSSM: number of stochastic variables. With a normal "
         "latent, its flat size is stoch_dim; with a categorical latent, it is "
@@ -449,6 +452,10 @@ if __name__ == '__main__':
         '--nonlinearity', type=str, default='sigmoid',
         help="Non linearity of the RNN. Default is sigmoid")
     argparser.add_argument(
+        '--rssm_cell', type=str, default='RNN', choices=['RNN', 'GRU'],
+        help="Deterministic transition cell of --architecture rssm "
+             "(GRU ignores --nonlinearity). Default is RNN")
+    argparser.add_argument(
         '--hidden_reg', type=float, default=0.,
         help="Hidden state l2 regularization of the RNN. Default is 0")
     argparser.add_argument(
@@ -457,6 +464,9 @@ if __name__ == '__main__':
     argparser.add_argument(
         '--epochs', type=int, default=1_500,
         help="Number of epochs to train the model. Default is 1_500")
+    argparser.add_argument(
+        '--save_model_every', type=int, default=500,
+        help="Epoch interval between saved checkpoints. Default is 500")
     argparser.add_argument(
         '--seed', type=int, default=1,
         help="Random seed for reproducibility. Default is 1")
@@ -482,13 +492,19 @@ if __name__ == '__main__':
         "to scale each latent unit to [0, 1] across all trajectories and "
         "timesteps; default is identity.")
     argparser.add_argument(
+        '--nonneg_hidden', action='store_true',
+        help="GRU/LSTM only: use a sigmoid instead of tanh for the candidate "
+        "state (GRU n_t, LSTM g_t) so that hidden and cell states stay "
+        "non-negative; appends '_nonneg' to the model name.")
+    argparser.add_argument(
         '--cell-activity-source',
-        choices=['deterministic', 'combined'],
+        choices=['deterministic', 'combined', 'cell'],
         default='deterministic',
         help=(
-            "RSSM states used for place/HD/conjunctive-cell analysis. "
+            "States used for place/HD/conjunctive-cell analysis. "
             "'deterministic' uses h only; 'combined' uses h together with "
-            "the posterior stochastic state z. Default is deterministic."
+            "the RSSM posterior stochastic state z or the LSTM cell state c; "
+            "'cell' (LSTM only) uses the cell state c. Default is deterministic."
         ),
     )
     argparser.add_argument(
@@ -508,11 +524,20 @@ if __name__ == '__main__':
     if args.curriculum is None and args.behaviour is None:
         raise ValueError("Either --behaviour or --curriculum must be provided")
 
+    if args.nonneg_hidden and args.architecture not in {'gru', 'lstm'}:
+        raise ValueError("--nonneg_hidden is only available for GRU and LSTM")
+    if args.cell_activity_source == 'cell' and args.architecture != 'lstm':
+        raise ValueError("--cell-activity-source cell is only available for LSTM")
+
     if args.stoch_dist == 'categorical' and args.stoch_n_class < 2:
         raise ValueError("--stoch_n_class must be at least 2 for a categorical latent")
 
-    if args.architecture == 'ctrnn' and args.ctrnn_tau < 1.0:
-        raise ValueError("--ctrnn_tau must be at least 1 data step")
+    if args.architecture in {'ctrnn', 'ctrssm', 'oderssm'} and args.ctrnn_tau < 1.0:
+        raise ValueError(
+            "--ctrnn_tau must be at least 1 data step for CTRNN/CTRSSM/ODE-RSSM"
+        )
+    if args.architecture == 'oderssm' and args.ode_substeps < 1:
+        raise ValueError("--ode_substeps must be at least 1")
 
 
     torch.manual_seed(args.seed)

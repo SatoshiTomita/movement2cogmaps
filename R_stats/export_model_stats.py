@@ -54,6 +54,8 @@ def state_indices(rssm_latent_dim=128, rssm_stoch_flat_dim=64):
 
 
 def activity_dir(args, model, stage):
+    if model == "custom":
+        return Path(args.activity_dirs[STAGES.index(stage)])
     base = args.data_root / "box" / stage / "predictions" / "box_messy"
     if model == "gru100":
         history = {"walk": "crawl", "run": "crawl_walk", "adult": "crawl_walk_run"}
@@ -75,10 +77,17 @@ def activity_dir(args, model, stage):
         def canonical(name):
             name = re.sub(rf"^{re.escape(stage)}_", "", name)
             return re.sub(r"_ft(?=_|$)", "", name)
+        # As in the paper's grid-cell figure, the adult group can be replaced
+        # by a grid-cell-injected model while walk/run stay on the curriculum.
+        model_name = (
+            args.rssm_adult_model
+            if stage == "adult" and args.rssm_adult_model
+            else args.rssm_model
+        )
         candidates = [p for p in base.glob("*/*") if p.is_dir()
-                      and canonical(p.name) == canonical(args.rssm_model)]
+                      and canonical(p.name) == canonical(model_name)]
         if len(candidates) != 1:
-            raise ValueError(f"Expected one {args.rssm_model}/{stage}; found {candidates}")
+            raise ValueError(f"Expected one {model_name}/{stage}; found {candidates}")
         transform_suffix = (
             "" if args.rssm_transform == "identity"
             else f"_{args.rssm_transform}"
@@ -99,6 +108,8 @@ def activity_dir(args, model, stage):
 
 
 def activity_transform(args, model):
+    if model == "custom":
+        return args.custom_transform
     if model in {"gru50", "gru100"}:
         return "halfshift"
     if model == "rssm" and args.rssm_model:
@@ -112,7 +123,7 @@ def load_inputs(args, models):
         args.rssm_latent_dim
         + args.rssm_stoch_dim * args.rssm_stoch_n_class
     )
-    for model, dimension in (("gru", 267), ("gru50", 50), ("gru100", 100), ("rssm", rssm_dimension), ("crssmv4", 240), ("rnn0716", 500)):
+    for model, dimension in (("gru", 267), ("gru50", 50), ("gru100", 100), ("rssm", rssm_dimension), ("crssmv4", 240), ("rnn0716", 500), ("custom", getattr(args, "custom_dim", None))):
         if model not in models:
             continue
         inputs[model], provenance[model] = {}, {}
@@ -120,7 +131,15 @@ def load_inputs(args, models):
             directory = activity_dir(args, model, stage)
             # Legacy RNN_0716 outputs predate activity_transform.txt. Preserve
             # their saved metrics without assigning an undocumented transform.
-            if model != "rnn0716":
+            if model == "custom":
+                # Legacy outputs without activity_transform.txt are allowed only
+                # when the user declares their transform explicitly.
+                transform_file = directory / "activity_transform.txt"
+                transform = (transform_file.read_text().strip()
+                             if transform_file.exists() else args.legacy_transform)
+                if transform != args.custom_transform:
+                    raise ValueError(f"Expected {args.custom_transform} activity in {directory}; got {transform}")
+            elif model != "rnn0716":
                 transform = (directory / "activity_transform.txt").read_text().strip()
                 expected_transform = activity_transform(args, model)
                 if transform != expected_transform:
@@ -170,6 +189,15 @@ def main():
                         help="RSSM stochastic-variable count (default: 8)")
     parser.add_argument("--rssm-stoch-n-class", type=int, default=8,
                         help="Categories per RSSM stochastic variable (default: 8)")
+    parser.add_argument("--activity-dirs", nargs=3, metavar=("WALK", "RUN", "ADULT"),
+                        help="Activity directories for the walk/run/adult groups of one model "
+                             "(all units); exported as the case <--label>_hidden")
+    parser.add_argument("--label", help="Case name prefix for --activity-dirs")
+    parser.add_argument("--legacy-transform",
+                        help="Transform assumed for --activity-dirs entries without activity_transform.txt")
+    parser.add_argument("--rssm-adult-model",
+                        help="RSSM directory name used for the adult group instead of --rssm-model "
+                             "(e.g. a grid-cell-injected model); requires --rssm-model")
     args = parser.parse_args()
     if min(args.rssm_latent_dim, args.rssm_stoch_dim, args.rssm_stoch_n_class) <= 0:
         parser.error("RSSM dimensions must be positive integers")
@@ -177,7 +205,18 @@ def main():
         args.rssm_latent_dim,
         args.rssm_stoch_dim * args.rssm_stoch_n_class,
     )
-    if args.cases:
+    if args.activity_dirs:
+        if args.cases or args.rssm_model or not args.label:
+            parser.error("--activity-dirs requires --label and excludes --cases/--rssm-model")
+        if args.output_root.resolve() == (ROOT / "R_stats/selected_models").resolve():
+            parser.error("Use a separate --output-root for --activity-dirs to preserve the baseline results")
+        adult_dir = Path(args.activity_dirs[-1])
+        args.custom_dim = np.load(adult_dir / METRICS["sir"], allow_pickle=False).shape[0]
+        transform_file = adult_dir / "activity_transform.txt"
+        args.custom_transform = (transform_file.read_text().strip()
+                                 if transform_file.exists() else args.legacy_transform)
+        cases = {f"{args.label}_hidden": ("custom", np.arange(args.custom_dim))}
+    elif args.cases:
         cases = {name: cases[name] for name in args.cases}
     else:
         cases.pop("RNN_0716_hidden")
@@ -198,6 +237,8 @@ def main():
             parser.error("Use a separate --output-root for --rssm-model to preserve the baseline results")
     elif args.rssm_epoch != 1500:
         parser.error("--rssm-epoch requires --rssm-model")
+    if args.rssm_adult_model and not args.rssm_model:
+        parser.error("--rssm-adult-model requires --rssm-model")
     rscript = shutil.which("Rscript")
     if args.run_r and rscript is None:
         parser.error("Rscript is unavailable. Install R, DescTools and reticulate, or omit --run-r to export inputs only.")
@@ -224,7 +265,9 @@ def main():
             "units_per_stage": len(indices), "unit_indices": indices.tolist(),
             "activity_transform": activity_transform(args, model),
             "activity_directories": provenance[model],
+            "label": args.label if model == "custom" else None,
             "rssm_model": args.rssm_model if model == "rssm" else None,
+            "rssm_adult_model": args.rssm_adult_model if model == "rssm" else None,
             "rssm_epoch": args.rssm_epoch if model == "rssm" and args.rssm_model else None,
             "rssm_latent_dim": args.rssm_latent_dim if model == "rssm" else None,
             "rssm_stoch_dim": args.rssm_stoch_dim if model == "rssm" else None,
@@ -263,6 +306,8 @@ def main():
                 "CRSSMV4_coarse", "CRSSMV4 上位層（coarse）")
             if args.rssm_model:
                 title = f"{args.rssm_model} / {case}"
+                if args.rssm_adult_model:
+                    title = f"{args.rssm_model} (adult: {args.rssm_adult_model}) / {case}"
             if model == "gru50":
                 title = "GRU_0808_50dim / 学習段階 walk → run → adult（全段階でcrawl入力を評価、halfshift）"
             subprocess.run([sys.executable, str(ROOT / "R_stats/summarize_stats.py"),

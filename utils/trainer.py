@@ -38,6 +38,17 @@ class RNNTrainer():
                 return model_name
             return f'{prefix}{model_name}'
 
+        def with_gridcell_suffix(model_name):
+            if args.get('n_gridcells', 0) <= 0:
+                return model_name
+            kind = 'gridcellssm' if args.get('gridcells_softmax') else 'gridcells'
+            modules = str(args.get('gridcells_modules')).replace(' ', '')
+            orientations = str(args.get('gridcells_orientations')).replace(' ', '')
+            return (
+                f'{model_name}_{kind}{args["n_gridcells"]}'
+                f'_mod{modules}_ori{orientations}'
+            )
+
         # Evaluate an explicit concise name for every curriculum stage, after
         # RNN_experiment.py has updated ``behaviour`` for that stage. The same
         # name is used for the checkpoint directory and the W&B run.
@@ -61,10 +72,11 @@ class RNNTrainer():
         if architecture in {'gru', 'lstm'}:
             model_name = architecture.upper()
             if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
-            return with_behaviour_prefix(model_name)
+            if args.get('nonneg_hidden'): model_name += '_nonneg'
+            return with_behaviour_prefix(with_gridcell_suffix(model_name))
 
         # RSSM variants: RNN-style suffix plus stochastic-latent parameters
-        if architecture in {'rssm', 'mtrssm', 'crssmv4'}:
+        if architecture in {'rssm', 'ctrssm', 'oderssm', 'mtrssm', 'crssmv4'}:
             model_name = architecture.upper()
             if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
             if args['pretrained_model_folder'] : model_name += '_ft'
@@ -73,8 +85,17 @@ class RNNTrainer():
                 f'_lat{args["latent_dim"]}_stoch{args["stoch_dim"]}'+
                 "rssm"
             )
-            if architecture == 'rssm':
+            if architecture == 'rssm' and args.get('rssm_cell', 'RNN') == 'GRU':
+                # GRUCell ignores --nonlinearity; name the cell instead.
+                model_name += '_gru'
+            elif architecture in {'rssm', 'ctrssm', 'oderssm'}:
                 model_name += f'_nl{args["nonlinearity"]}'
+            if architecture in {'ctrssm', 'oderssm'}:
+                model_name += (
+                    f'_tau{float(args.get("ctrnn_tau", 4.0)):g}'
+                )
+            if architecture == 'oderssm':
+                model_name += f'_ode{int(args.get("ode_substeps", 4))}'
             if architecture == 'mtrssm':
                 model_name += (
                     f'_hlat{args["higher_latent_dim"]}'
@@ -87,7 +108,7 @@ class RNNTrainer():
                 )
             if args.get('stoch_dist', 'normal') == 'categorical':
                 model_name += f'_cat{args["stoch_n_class"]}'
-            return with_behaviour_prefix(model_name)
+            return with_behaviour_prefix(with_gridcell_suffix(model_name))
 
         model_name = 'CTRNN' if architecture == 'ctrnn' else 'RNN'
         if args['name_prefix'] : model_name += f'_{args["name_prefix"]}'
@@ -152,7 +173,7 @@ class RNNTrainer():
             self.args.lr_sched_final_gamma**(1/self.args.lr_sched_start_epoch)
 
         # モデルの保存間隔、ログ出力間隔、勾配クリッピングの値を設定
-        self.args.save_model_every = 500
+        self.args.save_model_every = getattr(self.args, 'save_model_every', None) or 500
         self.args.log_every = 50
         self.args.clip_value = 1.
 
@@ -498,7 +519,9 @@ class RNNTrainer():
             n_future_pred=self.args.n_future_pred,
             # For RSSM, sum reconstruction errors over flattened pixels and
             # average only over batch samples and time steps.
-            sum_features=getattr(self.args, 'architecture', 'rnn') == 'rssm',
+            sum_features=getattr(self.args, 'architecture', 'rnn') in {
+                'rssm', 'ctrssm', 'oderssm'
+            },
         ).to(self.device)
 
         if self.args.activity_only:
@@ -515,10 +538,6 @@ class RNNTrainer():
 
         # define RNN architecture
         if getattr(self.args, 'architecture', 'rnn') == 'ctrnn':
-            if self.args.n_gridcells > 0:
-                raise NotImplementedError(
-                    "CTRNN architecture does not support grid cells input"
-                )
             from architectures.recurrent.ctrnn_bptt import CTRNN
             rnn = CTRNN(
                 self.device,
@@ -529,12 +548,11 @@ class RNNTrainer():
                 nonlinearity=self.args.nonlinearity,
                 dropouts=self.args.dropouts,
                 bias=self.args.bias,
+                gridcells_dim=(
+                    self.args.n_gridcells if self.args.n_gridcells > 0 else None
+                ),
             ).to(self.device)
         elif getattr(self.args, 'architecture', 'rnn') in {'gru', 'lstm'}:
-            if self.args.n_gridcells > 0:
-                raise NotImplementedError(
-                    f"{self.args.architecture.upper()} architecture does not support grid cells input"
-                )
             if self.args.architecture == 'gru':
                 from architectures.recurrent.gru_bptt import GRU
                 recurrent_model = GRU
@@ -550,11 +568,13 @@ class RNNTrainer():
                 nonlinearity = self.args.nonlinearity,
                 dropouts = self.args.dropouts,
                 bias = self.args.bias,
+                gridcells_dim=(
+                    self.args.n_gridcells if self.args.n_gridcells > 0 else None
+                ),
+                nonneg_hidden=getattr(self.args, 'nonneg_hidden', False),
             ).to(self.device)
         # RSSMの場合
         elif getattr(self.args, 'architecture', 'rnn') == 'rssm':
-            if self.args.n_gridcells > 0:
-                raise NotImplementedError("RSSM architecture does not support grid cells input")
             from architectures.recurrent.rssm import RSSMPredictor
             from utils.config import DistributionConfig, RNNConfig, RSSMConfig
 
@@ -582,7 +602,7 @@ class RNNTrainer():
                 stoch_cfg=stoch_cfg,
                 init_from_="obs",
                 init_with_="posterior",
-                rnn_name="RNN",
+                rnn_name=getattr(self.args, 'rssm_cell', 'RNN'),
                 rnn_cfg=RNNConfig(
                     bias=bool(self.args.bias),
                     nonlinearity=self.args.nonlinearity,
@@ -592,6 +612,59 @@ class RNNTrainer():
                 obs_dim=scene_dim,
                 action_dim=vel_dim,
                 cfg=rssm_cfg,
+                gridcells_dim=(
+                    self.args.n_gridcells if self.args.n_gridcells > 0 else None
+                ),
+            ).to(self.device)
+        elif getattr(self.args, 'architecture', 'rnn') in {'ctrssm', 'oderssm'}:
+            from architectures.recurrent.ctrssm import CTRSSMPredictor
+            from architectures.recurrent.ode_rssm import ODERSSMPredictor
+            from utils.config import DistributionConfig, RSSMConfig
+
+            if output_dim != scene_dim:
+                raise ValueError(
+                    "CTRSSM expects output_dim to match scene_dim, "
+                    f"but got output_dim={output_dim} and scene_dim={scene_dim}"
+                )
+
+            stoch_cfg = DistributionConfig(
+                stoch_dim=self.args.stoch_dim,
+                hidden_dim=self.args.latent_dim,
+                dist=self.args.stoch_dist,
+                layers=1,
+                activation="Mish",
+                n_class=(
+                    self.args.stoch_n_class
+                    if self.args.stoch_dist == "categorical"
+                    else 1
+                ),
+            )
+            ctrssm_cfg = RSSMConfig(
+                determ_dim=self.args.latent_dim,
+                stoch_cfg=stoch_cfg,
+                init_from_="obs",
+                init_with_="posterior",
+            )
+            ode_kwargs = (
+                {'ode_substeps': self.args.ode_substeps}
+                if self.args.architecture == 'oderssm' else {}
+            )
+            predictor_cls = (
+                ODERSSMPredictor if self.args.architecture == 'oderssm'
+                else CTRSSMPredictor
+            )
+            rnn = predictor_cls(
+                **ode_kwargs,
+                obs_dim=scene_dim,
+                action_dim=vel_dim,
+                cfg=ctrssm_cfg,
+                tau=self.args.ctrnn_tau,
+                nonlinearity=self.args.nonlinearity,
+                dropouts=self.args.dropouts,
+                bias=bool(self.args.bias),
+                gridcells_dim=(
+                    self.args.n_gridcells if self.args.n_gridcells > 0 else None
+                ),
             ).to(self.device)
         elif getattr(self.args, 'architecture', 'rnn') == 'mtrssm':
             if self.args.n_gridcells > 0:
@@ -688,16 +761,6 @@ class RNNTrainer():
                 action_dim=vel_dim,
                 frame_shape=(height, width),
             ).to(self.device)
-        elif self.args.n_gridcells > 0:
-            from architectures.recurrent_gridcells.rnn_bptt import RNN
-            rnn = RNN(
-                self.device,
-                scene_dim+vel_dim, self.args.n_gridcells, output_dim,
-                latent_dim = self.args.latent_dim,
-                nonlinearity = self.args.nonlinearity,
-                dropouts = self.args.dropouts,
-                bias = self.args.bias,
-            ).to(self.device)
         else:
             from architectures.recurrent.rnn_bptt import RNN
             rnn = RNN(
@@ -707,6 +770,9 @@ class RNNTrainer():
                 nonlinearity = self.args.nonlinearity,
                 dropouts = self.args.dropouts,
                 bias = self.args.bias,
+                gridcells_dim=(
+                    self.args.n_gridcells if self.args.n_gridcells > 0 else None
+                ),
             ).to(self.device)
 
         if rnn_loaded is not None:
@@ -747,7 +813,7 @@ class RNNTrainer():
 
     def define_bptt_trainer(self, optimizer, loss_fn):
         """BPTTの学習を行うためのTrainerクラスを定義する関数"""
-        if getattr(self.args, 'architecture', 'rnn') == 'rssm':
+        if getattr(self.args, 'architecture', 'rnn') in {'rssm', 'ctrssm', 'oderssm'}:
             from architectures.recurrent.training import TrainerRSSM
             return TrainerRSSM(
                 self.args, optimizer, loss_fn, self.device

@@ -62,7 +62,7 @@ class RNN(torch.nn.Module):
         out = self.decoder_lin(x)
         return self.decoder_do(out) if self.add_do else out
 
-    def forward(self, scene, gc, hidden=None):
+    def forward(self, scene, gc=None, hidden=None, gridcells=None):
         """Full forward pass: encode then decode.
 
         Args:
@@ -75,6 +75,12 @@ class RNN(torch.nn.Module):
                        all hidden states [batch, time, latent_dim],
                        last hidden state [batch, latent_dim]).
         """
+        if gridcells is not None:
+            if gc is not None:
+                raise ValueError("provide either gc or gridcells, not both")
+            gc = gridcells
+        if gc is None:
+            raise ValueError("gridcells must be provided")
         hidden_all = self.encode(scene, gc, hidden)
         output = self.decode(hidden_all)
         return output, hidden_all, hidden_all[:, -1, :]

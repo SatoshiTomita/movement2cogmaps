@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Send the final message from a completed Codex CLI turn to a Slack DM.
+"""Send the final message from a completed Codex CLI turn to Slack.
 
 Codex invokes notification programs with one JSON argument. This script reads
 Slack credentials from the process environment or, by default, from
@@ -73,7 +73,12 @@ def load_env_file(path: Path) -> None:
     if not path.is_file():
         raise NotificationError(f"Environment file is not a regular file: {path}")
 
-    supported_keys = {"SLACK_BOT_TOKEN", "SLACK_USER_ID"}
+    supported_keys = {
+        "SLACK_BOT_TOKEN",
+        "SLACK_BOT_CLAUDE_TOKEN",
+        "SLACK_CHANNEL_ID",
+        "SLACK_USER_ID",
+    }
     for line_number, raw_line in enumerate(
         path.read_text(encoding="utf-8").splitlines(), start=1
     ):
@@ -182,9 +187,13 @@ def clean_assistant_message(message: str) -> str:
     return "\n".join(lines).strip()
 
 
-def send_dm(event: dict[str, Any]) -> int:
-    token = require_env("SLACK_BOT_TOKEN")
-    user_id = require_env("SLACK_USER_ID")
+def send_to_slack(
+    event: dict[str, Any],
+    *,
+    token_env: str = "SLACK_BOT_TOKEN",
+    title: str = "Codex CLI",
+) -> int:
+    token = require_env(token_env)
 
     raw_answer = event.get("last-assistant-message")
     if raw_answer is None:
@@ -198,22 +207,29 @@ def send_dm(event: dict[str, Any]) -> int:
         write_log("skipped reason=empty_answer")
         return 0
 
-    conversation = slack_api(token, "conversations.open", {"users": user_id})
-    channel_id = conversation.get("channel", {}).get("id")
+    channel_id = os.environ.get("SLACK_CHANNEL_ID", "").strip()
+    destination = "channel"
     if not channel_id:
-        raise NotificationError("Slack did not return a DM channel ID")
+        user_id = require_env("SLACK_USER_ID")
+        conversation = slack_api(token, "conversations.open", {"users": user_id})
+        channel_id = conversation.get("channel", {}).get("id")
+        destination = "dm"
+        if not channel_id:
+            raise NotificationError("Slack did not return a DM channel ID")
 
     cwd = str(event.get("cwd", "")).strip()
     project_name = Path(cwd).name if cwd else "unknown project"
 
     for index, chunk in enumerate(split_message(answer)):
         if index == 0:
-            text = f"*Codex CLI completed — {project_name}*\n\n{chunk}"
+            text = f"*{title} completed — {project_name}*\n\n{chunk}"
         else:
-            text = f"*Codex CLI response continued*\n\n{chunk}"
+            text = f"*{title} response continued*\n\n{chunk}"
         slack_api(token, "chat.postMessage", {"channel": channel_id, "text": text})
     chunk_count = len(split_message(answer))
-    write_log(f"sent chunks={chunk_count} project={project_name!r}")
+    write_log(
+        f"sent chunks={chunk_count} destination={destination} project={project_name!r}"
+    )
     return chunk_count
 
 
@@ -239,7 +255,7 @@ def main(argv: list[str]) -> int:
     if event.get("type") != "agent-turn-complete":
         return 0
 
-    send_dm(event)
+    send_to_slack(event)
     return 0
 
 

@@ -1,3 +1,5 @@
+import os
+
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,6 +20,14 @@ def _detach_recurrent_state(state):
     if isinstance(state, tuple):
         return tuple(component.detach() for component in state)
     return state.detach()
+
+
+def _trajectory_activity(model, hidden_all):
+    """Hidden states for activity analysis, with LSTM cell states appended
+    as ``[h, c]`` when the model records them."""
+    if getattr(model, "record_cell_state", False):
+        hidden_all = torch.cat((hidden_all, model.cell_all), dim=-1)
+    return hidden_all.detach().cpu().numpy()
 
 
 class TrainerBPTT(Trainer):
@@ -196,7 +206,7 @@ class TrainerBPTT(Trainer):
                     hidden_last = None
 
                 if for_trajectory:
-                    hidden_activity.append(hidden_all.detach().cpu().numpy())
+                    hidden_activity.append(_trajectory_activity(model, hidden_all))
                     positions.append(pos.squeeze(dim=0)[:, 0, ...].cpu().numpy())
                     thetas.append(thet.squeeze(dim=0)[:, 0, ...].cpu().numpy())
             
@@ -277,6 +287,39 @@ class TrainerBPTT(Trainer):
                         figs.append(fig)
         return figs
 
+    def plot_single_test_examples(self, model, dataloader, n_examples, frame_dim, exp_dir):
+        """Save individual input/output/label frames as .npy files.
+
+        Args:
+            model: The recurrent model.
+            dataloader: Test DataLoader.
+            n_examples: Number of examples to save (evenly sampled across batches).
+            frame_dim: (width, height) of the scene frame for reshaping.
+            exp_dir: Experiment directory; files are saved under ``exp_dir/test_examples/``.
+        """
+        os.makedirs(os.path.join(exp_dir, 'test_examples'), exist_ok=True)
+        with torch.no_grad():
+            sampled_sequences = np.linspace(0, len(dataloader)-1, n_examples, dtype=int)
+
+            hidden_last = None
+
+            for i, tdata in enumerate(dataloader):
+                inputs, labels, outputs, hidden_last = self._predict_plot_batch(
+                    model, tdata, hidden_last
+                )
+                hidden_last = _detach_recurrent_state(hidden_last)
+                if self.args.reset_hidden_at is not None and i % self.args.reset_hidden_at == 0:
+                    hidden_last = None
+
+                if i in sampled_sequences:
+                    inputs_plot = inputs[..., :outputs.shape[-1]]
+                    inputs_plot = inputs_plot[0, 0, :].cpu().reshape(*frame_dim[::-1])
+                    outputs_plot = outputs[0, 0, :].cpu().reshape(*frame_dim[::-1])
+                    labels_plot = labels[0, 0, :].cpu().reshape(*frame_dim[::-1])
+
+                    for name, arr in [('input', inputs_plot), ('output', outputs_plot), ('label', labels_plot)]:
+                        np.save(os.path.join(exp_dir, 'test_examples', f'{name}_{i}.npy'), arr)
+
 
 class TrainerRSSM(TrainerBPTT):
     """Trainer for the RSSM model.
@@ -301,9 +344,24 @@ class TrainerRSSM(TrainerBPTT):
             prior=model.last_prior,
         )
 
+    @staticmethod
+    def _unpack_batch(data):
+        """Accept both ordinary and grid-cell dataset batches."""
+        if len(data) == 7:
+            scene, vel, rot_vel, gridcells, pos, thet, labels = data
+        else:
+            scene, vel, rot_vel, pos, thet, labels = data
+            gridcells = None
+        return scene, vel, rot_vel, gridcells, pos, thet, labels
+
+    def _gridcells_for_first_prediction(self, gridcells):
+        if gridcells is None:
+            return None
+        return gridcells.squeeze(dim=0)[:, 0].to(self.device)
+
     def _predict_plot_batch(self, model, tdata, hidden_last):
         """Run a plotting batch with the same alignment used for RSSM tests."""
-        scene, vel, rot_vel, _, _, labels = tdata
+        scene, vel, rot_vel, gridcells, _, _, labels = self._unpack_batch(tdata)
         scene = scene.squeeze(dim=0).to(self.device)
         action = torch.cat(
             (
@@ -319,6 +377,7 @@ class TrainerRSSM(TrainerBPTT):
             observation=observation,
             state=hidden_last,
             initial_obs=scene[:, 0] if hidden_last is None else None,
+            gridcells=self._gridcells_for_first_prediction(gridcells),
         )
 
         # The plotting code expects the image channels first in ``inputs``.
@@ -337,7 +396,7 @@ class TrainerRSSM(TrainerBPTT):
         for i, data in enumerate(dataloader):
             self.optimizer.zero_grad()
 
-            scene, vel, rot_vel, _, _, labels = data
+            scene, vel, rot_vel, gridcells, _, _, labels = self._unpack_batch(data)
             # [1,B,T,obs_dim]->[B,T,obs_dim]
             scene = scene.squeeze(dim=0).to(self.device)
 
@@ -379,6 +438,7 @@ class TrainerRSSM(TrainerBPTT):
                 observation=observation,
                 state=hidden_last,
                 initial_obs=initial_obs,
+                gridcells=self._gridcells_for_first_prediction(gridcells),
             )
 
             # outputs and scene both represent the pre-action times
@@ -469,7 +529,9 @@ class TrainerRSSM(TrainerBPTT):
 
         with torch.no_grad():
             for i, data in enumerate(dataloader):
-                scene, vel, rot_vel, pos, thet, labels = data
+                (
+                    scene, vel, rot_vel, gridcells, pos, thet, labels
+                ) = self._unpack_batch(data)
 
                 # [1,B,T,obs_dim] -> [B,T,obs_dim]
                 scene = scene.squeeze(dim=0).to(self.device)
@@ -510,6 +572,7 @@ class TrainerRSSM(TrainerBPTT):
                     observation=observation,
                     state=hidden_last,
                     initial_obs=initial_obs,
+                    gridcells=self._gridcells_for_first_prediction(gridcells),
                 )
 
                 recon_loss = self.loss_fn(

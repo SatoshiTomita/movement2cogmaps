@@ -113,6 +113,28 @@ class LossFunctions:
 
 class CalcFreeEnergy:
     @staticmethod
+    def kl_penalty(
+        raw_complexity: torch.Tensor,
+        free_nats: float,
+        kl_target: float | None = None,
+        kl_capacity_beta: float = 1.0,
+        kl_capacity_mode: Literal["absolute", "quadratic"] = "absolute",
+    ) -> torch.Tensor:
+        """Return a free-nats or capacity-controlled KL penalty."""
+        if kl_target is None:
+            return torch.max(
+                raw_complexity,
+                raw_complexity.new_full(raw_complexity.size(), free_nats),
+            )
+        target = raw_complexity.new_full(raw_complexity.size(), kl_target)
+        if kl_capacity_mode == "absolute":
+            return torch.abs(raw_complexity - target) * kl_capacity_beta
+        if kl_capacity_mode == "quadratic":
+            relative_error = (raw_complexity - target) / target
+            return relative_error.square() * kl_capacity_beta
+        raise ValueError(f"Unknown KL capacity mode: {kl_capacity_mode}")
+
+    @staticmethod
     def likelihood_variational(
         posterior: StochState,
         prior: StochState,
@@ -265,6 +287,9 @@ class CalcFreeEnergy:
         obs_std: float = 1.0,
         kl_beta: float = 1.0,
         free_nats: float = 3.0,
+        kl_target: float | None = None,
+        kl_capacity_beta: float = 1.0,
+        kl_capacity_mode: Literal["absolute", "quadratic"] = "absolute",
         use_ce: bool = True,
         nce_balancing: float = 0.5,
         accuracy_metric: Literal["mse", "logprob", "charbonnier"] = "logprob",
@@ -332,11 +357,18 @@ class CalcFreeEnergy:
                 posterior, prior, kl_balancing)
         else:
             complexity = LossFunctions.kl_vanilla(posterior, prior)
-        complexity = torch.max(
-            complexity, complexity.new_full(complexity.size(), free_nats)
+        raw_complexity = complexity
+        complexity = CalcFreeEnergy.kl_penalty(
+            raw_complexity,
+            free_nats=free_nats,
+            kl_target=kl_target,
+            kl_capacity_beta=kl_capacity_beta,
+            kl_capacity_mode=kl_capacity_mode,
         )
         loss_dict["loss"] = loss_dict["loss"] + (complexity * kl_beta)
+        loss_dict["kl"] = raw_complexity.detach().item()
         loss_dict["complexity"] = complexity.item()
+        loss_dict["kl_penalty"] = complexity.item()
 
         return loss_dict
 

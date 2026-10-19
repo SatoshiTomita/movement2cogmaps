@@ -101,6 +101,7 @@ class CTRNN(torch.nn.Module):
         nonlinearity="sigmoid",
         dropouts=(0, 0, 0),
         bias=False,
+        gridcells_dim=None,
     ):
         super().__init__()
         if len(dropouts) != 3:
@@ -120,13 +121,22 @@ class CTRNN(torch.nn.Module):
             dropouts=dropouts[:2],
             bias=bias,
         )
+        self.gc2membrane = (
+            torch.nn.Linear(gridcells_dim, latent_dim)
+            if gridcells_dim is not None else None
+        )
         self.decoder_lin = torch.nn.Linear(
             latent_dim, output_dim, bias=bias
         )
         self.decoder_dropout = torch.nn.Dropout(dropouts[2])
 
-    def encode(self, inputs, state=None):
+    def encode(self, inputs, state=None, gridcells=None):
         """Encode ``[batch, time, input_dim]`` and return all activities."""
+        if state is None and self.gc2membrane is not None:
+            if gridcells is None:
+                raise ValueError("gridcells must be provided when grid-cell input is enabled")
+            membrane = self.gc2membrane(gridcells[:, 0])
+            state = (membrane, self.ctrnn_cell.activation_fn(membrane))
         activities = []
         for step in range(inputs.shape[1]):
             activity, state = self.ctrnn_cell(inputs[:, step], state)
@@ -139,8 +149,8 @@ class CTRNN(torch.nn.Module):
     def decode(self, activity):
         return self.decoder_dropout(self.decoder_lin(activity))
 
-    def forward(self, inputs, hidden=None):
+    def forward(self, inputs, hidden=None, gridcells=None):
         """Return predictions, all activities, and the final CTRNN state."""
-        hidden_all, hidden_last = self.encode(inputs, hidden)
+        hidden_all, hidden_last = self.encode(inputs, hidden, gridcells)
         output = self.decode(hidden_all)
         return output, hidden_all, hidden_last

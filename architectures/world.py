@@ -372,7 +372,7 @@ class CoarseWorldModel(WorldModel):
                 **self.loss_cfg
             )
         else:
-            coarse_complexity = (
+            raw_coarse_complexity = (
                 lf.kl_balancing(
                     world_states.c_posterior if isinstance(self.dynamics, CRSSMV4) else world_states.posterior,
                     world_states.c_prior,
@@ -383,17 +383,29 @@ class CoarseWorldModel(WorldModel):
                     world_states.c_posterior if isinstance(self.dynamics, CRSSMV4) else world_states.posterior,
                     world_states.c_prior,
                 ))
-            coarse_complexity = torch.max(
-                coarse_complexity,
-                coarse_complexity.new_full(coarse_complexity.size(), self.loss_cfg.free_nats),
-                )
+            coarse_complexity = CalcFreeEnergy.kl_penalty(
+                raw_coarse_complexity,
+                free_nats=self.loss_cfg.free_nats,
+                kl_target=self.loss_cfg.get("kl_target"),
+                kl_capacity_beta=self.loss_cfg.get("kl_capacity_beta", 1.0),
+                kl_capacity_mode=self.loss_cfg.get("kl_capacity_mode", "absolute"),
+            )
             c_wld_loss = dict(
                 loss=coarse_complexity * self.loss_cfg.kl_beta,
+                kl=raw_coarse_complexity.detach().item(),
                 complexity=coarse_complexity.item(),
+                kl_penalty=coarse_complexity.item(),
                 )
         wld_loss["loss"] += c_wld_loss.pop("loss")
         for c_wld_loss_key in c_wld_loss.keys():
             wld_loss[f"coarse_{c_wld_loss_key}"] = c_wld_loss[c_wld_loss_key]
+
+        # These aliases make the training-health curves explicit in W&B.
+        # ``kl`` values are logged before the free-nats floor is applied.
+        if "accuracy" in wld_loss:
+            wld_loss["reconstruction"] = wld_loss["accuracy"]
+        wld_loss["precise_kl"] = wld_loss["kl"]
+        wld_loss["total_kl"] = wld_loss["precise_kl"] + wld_loss["coarse_kl"]
 
 
         if self.loss_cfg.w_coarse_obs > 0 and self.coarse_obs == "determ" and self.cfg.shared_decoder:

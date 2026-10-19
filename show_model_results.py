@@ -34,6 +34,12 @@ CELL_COUNT_METRICS = {
 def canonical_model_name(name: str) -> str:
     """Normalize naming differences introduced by curriculum fine-tuning."""
     for stage in STAGES:
+        prefix = f"{stage}_"
+        if name.casefold().startswith(prefix):
+            name = name[len(prefix) :]
+            break
+
+    for stage in STAGES:
         suffix = f"_{stage}"
         if name.casefold().endswith(suffix):
             name = name[: -len(suffix)]

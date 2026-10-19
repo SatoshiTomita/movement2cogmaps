@@ -262,8 +262,47 @@ RETICULATE_PYTHON="$HOME/.local/envs/r-stats/bin/python" \
 
 CUDA_VISIBLE_DEVICES=2 .venv311/bin/python RNN_experiment.py \
   --architecture ctrnn \
-  --ctrnn_tau 4 \
+  --ctrnn_tau 1 \
   --curriculum crawl,walk,run,adult \
   --name_prefix 1002 \
   --num_workers 8 \
   --wandb
+
+CUDA_VISIBLE_DEVICES=2 \
+MPLCONFIGDIR=/tmp/movement2cogmaps-matplotlib \
+.venv311/bin/python RNN_experiment.py \
+  --architecture ctrssm \
+  --ctrnn_tau 3 \
+  --curriculum crawl,walk,run,adult \
+  --env box_messy \
+  --latent_dim 512 \
+  --stoch_dim 8 \
+  --stoch_dist categorical \
+  --stoch_n_class 8 \
+  --nonlinearity sigmoid \
+  --kl_scale 1.0 \
+  --free_nats 0.1 \
+  --epochs 1500 \
+  --epoch_act 1500 \
+  --seed 1 \
+  --num_workers 8 \
+  --name_prefix 1007 \
+  --activity_transform identity \
+  --cell-activity-source combined \
+  --wandb
+# ODE-RSSM (learned neural-ODE transition, RK4 x4 sub-steps), tau sweep 1/3/8
+# logs/oderssm_tau_20261015/run_tau.sh TAU  (tmux session oderssm_tau, GPU 2)
+CUDA_VISIBLE_DEVICES=2 \
+MPLCONFIGDIR=/tmp/movement2cogmaps-matplotlib \
+.venv311/bin/python RNN_experiment.py \
+  --architecture oderssm --ctrnn_tau 3 --ode_substeps 4 \
+  --curriculum crawl,walk,run,adult --env box_messy \
+  --latent_dim 512 --stoch_dim 8 --stoch_dist categorical --stoch_n_class 8 \
+  --nonlinearity sigmoid --kl_scale 1.0 --free_nats 0.1 \
+  --epochs 1500 --epoch_act 1500 --save_model_every 1500 --seed 1 --num_workers 8 \
+  --name_prefix 1015 --activity_transform identity --cell-activity-source combined \
+  --wandb
+# CTRSSM tau sweep 2/4/8/16 (curriculum, parallel on GPU 2 when it has room)
+# tmux new -d -s ctrssm_launch 'bash logs/ctrssm_tau_20261017/launch_sweep.sh 2>&1 | tee logs/ctrssm_tau_20261017/launch.log'
+# GRU267 / LSTM221 with non-negative hidden states (--nonneg_hidden), started after the CTRSSM tau sweep
+# tmux new -d -s nonneg_wait 'bash logs/nonneg_gru_lstm_20261018/launch_after_ctrssm.sh 2>&1 | tee logs/nonneg_gru_lstm_20261018/launch.log'

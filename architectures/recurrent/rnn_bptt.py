@@ -19,7 +19,8 @@ class RNN(torch.nn.Module):
     """
 
     def __init__(self, device, input_dim, output_dim, latent_dim=500,
-                 nonlinearity='sigmoid', dropouts=[0, 0, 0], bias=False):
+                 nonlinearity='sigmoid', dropouts=[0, 0, 0], bias=False,
+                 gridcells_dim=None):
         super().__init__()
 
         self.rnn = RNNModule(
@@ -27,12 +28,16 @@ class RNN(torch.nn.Module):
             nonlinearity=nonlinearity, dropouts=dropouts,
             input_bias=bias, hidden_bias=bias
         )
+        self.gc2hidden = (
+            torch.nn.Linear(gridcells_dim, latent_dim)
+            if gridcells_dim is not None else None
+        )
 
         self.decoder_lin = torch.nn.Linear(latent_dim, output_dim, bias=bias)
         self.add_do = dropouts[-1] > 0
         self.decoder_do = torch.nn.Dropout(dropouts[-1])
 
-    def encode(self, x, hidden):
+    def encode(self, x, hidden, gridcells=None):
         """Encode input sequence to hidden states.
 
         Args:
@@ -44,6 +49,10 @@ class RNN(torch.nn.Module):
         """
         if hidden is not None:
             return self.rnn(x, hidden[None, ...])[0]
+        if self.gc2hidden is not None:
+            if gridcells is None:
+                raise ValueError("gridcells must be provided when grid-cell input is enabled")
+            return self.rnn(x, self.gc2hidden(gridcells[:, 0]))[0]
         return self.rnn(x)[0]
 
     def decode(self, x):
@@ -58,7 +67,7 @@ class RNN(torch.nn.Module):
         out = self.decoder_lin(x)
         return self.decoder_do(out) if self.add_do else out
 
-    def forward(self, inputs, hidden=None):
+    def forward(self, inputs, hidden=None, gridcells=None):
         """Full forward pass: encode then decode.
 
         Args:
@@ -70,6 +79,6 @@ class RNN(torch.nn.Module):
                        all hidden states [batch, time, latent_dim],
                        last hidden state [batch, latent_dim]).
         """
-        hidden_all = self.encode(inputs, hidden)
+        hidden_all = self.encode(inputs, hidden, gridcells)
         output = self.decode(hidden_all)
         return output, hidden_all, hidden_all[:, -1, :]

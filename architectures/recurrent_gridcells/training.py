@@ -5,6 +5,11 @@ import os
 
 from architectures.losses_custom import get_hidden_l2norm, get_weights_l2norm
 from architectures.training import Trainer
+from architectures.recurrent.training import (
+    _clone_recurrent_state,
+    _detach_recurrent_state,
+    _trajectory_activity,
+)
 
 
 class TrainerBPTT(Trainer):
@@ -60,12 +65,19 @@ class TrainerBPTT(Trainer):
                 # First step: persist hidden state for next batch
                 if f == 0:
                     outputs, hidden_all, hidden_last = model(
-                        inputs, gc.squeeze(dim=0)[:, f, ...].to(self.device), hidden_last
+                        inputs,
+                        hidden=hidden_last,
+                        gridcells=gc.squeeze(dim=0)[:, f, ...].to(self.device),
                     )
-                    h = hidden_last.clone() if self.args.n_future_pred > 1 else None
+                    h = (
+                        _clone_recurrent_state(hidden_last)
+                        if self.args.n_future_pred > 1 else None
+                    )
                 else:
                     outputs, _, h = model(
-                        inputs, gc.squeeze(dim=0)[:, f, ...].to(self.device), h
+                        inputs,
+                        hidden=h,
+                        gridcells=gc.squeeze(dim=0)[:, f, ...].to(self.device),
                     )
                 outputs_all.append(outputs)
                 scene = outputs
@@ -108,8 +120,8 @@ class TrainerBPTT(Trainer):
             )
             return_dict = self._update_norms(model, return_dict)
 
-            hidden_last = hidden_last.detach()
-            if self.args.reset_hidden_at is not None and i % self.args.reset_hidden_at == 0:
+            hidden_last = _detach_recurrent_state(hidden_last)
+            if self.args.reset_hidden_at is not None and (i + 1) % self.args.reset_hidden_at == 0:
                 hidden_last = None
         
         # take the average over all batches and return the dictionary
@@ -148,7 +160,9 @@ class TrainerBPTT(Trainer):
                 labels = labels.squeeze(dim=0)[:, 0, ...].to(self.device)
 
                 outputs, hidden_all, hidden_last = model(
-                    inputs, gc.squeeze(dim=0)[:, 0, ...].to(self.device), hidden_last
+                    inputs,
+                    hidden=hidden_last,
+                    gridcells=gc.squeeze(dim=0)[:, 0, ...].to(self.device),
                 )
 
                 loss = self.loss_fn(outputs, labels)
@@ -182,12 +196,12 @@ class TrainerBPTT(Trainer):
                 )
                 return_dict = self._update_norms(model, return_dict)
 
-                hidden_last = hidden_last.detach()
-                if self.args.reset_hidden_at is not None and i % self.args.reset_hidden_at == 0:
+                hidden_last = _detach_recurrent_state(hidden_last)
+                if self.args.reset_hidden_at is not None and (i + 1) % self.args.reset_hidden_at == 0:
                     hidden_last = None
 
                 if for_trajectory:
-                    hidden_activity.append(hidden_all.detach().cpu().numpy())
+                    hidden_activity.append(_trajectory_activity(model, hidden_all))
                     positions.append(pos.squeeze(dim=0)[:, 0, ...].cpu().numpy())
                     thetas.append(thet.squeeze(dim=0)[:, 0, ...].cpu().numpy())
             
@@ -229,10 +243,12 @@ class TrainerBPTT(Trainer):
                 labels = labels.squeeze(dim=0)[:, 0, ...]
 
                 outputs, _, hidden_last = model(
-                    inputs, gc.squeeze(dim=0)[:, 0, ...].to(self.device), hidden_last
+                    inputs,
+                    hidden=hidden_last,
+                    gridcells=gc.squeeze(dim=0)[:, 0, ...].to(self.device),
                 )
-                hidden_last = hidden_last.detach()
-                if self.args.reset_hidden_at is not None and i % self.args.reset_hidden_at == 0:
+                hidden_last = _detach_recurrent_state(hidden_last)
+                if self.args.reset_hidden_at is not None and (i + 1) % self.args.reset_hidden_at == 0:
                     hidden_last = None
 
                 if i in sampled_indices:
@@ -300,10 +316,12 @@ class TrainerBPTT(Trainer):
                 labels = labels.squeeze(dim=0)[:, 0, ...]
 
                 outputs, _, hidden_last = model(
-                    inputs, gc.squeeze(dim=0)[:, 0, ...].to(self.device), hidden_last
+                    inputs,
+                    hidden=hidden_last,
+                    gridcells=gc.squeeze(dim=0)[:, 0, ...].to(self.device),
                 )
-                hidden_last = hidden_last.detach()
-                if self.args.reset_hidden_at is not None and i % self.args.reset_hidden_at == 0:
+                hidden_last = _detach_recurrent_state(hidden_last)
+                if self.args.reset_hidden_at is not None and (i + 1) % self.args.reset_hidden_at == 0:
                     hidden_last = None
 
                 if i in sampled_sequences:

@@ -93,6 +93,11 @@ class RNNActiviter():
         解析ディレクトリへ保存する。
         """
         self.args.clip_value = None
+        if getattr(self.args, 'architecture', 'rnn') == 'lstm':
+            # Cell states are only exposed by the step-by-step LSTM unroll.
+            rnn.record_cell_state = getattr(
+                self.args, 'cell_activity_source', 'deterministic'
+            ) != 'deterministic'
 
         vloss_dict, latent_activity, positions, thetas, _, _, _ =\
             trainer_bptt.test_epoch(rnn, dataloader, for_trajectory=True)
@@ -156,16 +161,30 @@ class RNNActiviter():
             self.args, 'cell_activity_source', 'deterministic'
         )
 
-        if architecture == 'rssm':
+        if architecture in {'rssm', 'ctrssm', 'oderssm'}:
             if cell_source == 'combined':
                 recurrent_activity = latent_activity
                 description = (
-                    'RSSM deterministic state h and posterior stochastic '
+                    f'{architecture.upper()} deterministic state h and posterior stochastic '
                     'state z'
                 )
             else:
                 recurrent_activity = latent_activity[..., :self.args.latent_dim]
-                description = 'RSSM GRU deterministic state h'
+                recurrent_name = {'ctrssm': 'CTRNN', 'oderssm': 'neural ODE'}.get(
+                    architecture, 'RNN'
+                )
+                description = (
+                    f'{architecture.upper()} {recurrent_name} '
+                    'deterministic state h'
+                )
+        elif architecture == 'lstm' and cell_source != 'deterministic':
+            # latent_activity holds [h, c] (see _trajectory_activity).
+            if cell_source == 'cell':
+                recurrent_activity = latent_activity[..., self.args.latent_dim:]
+                description = 'LSTM cell state c'
+            else:
+                recurrent_activity = latent_activity
+                description = 'LSTM hidden state h and cell state c'
         elif architecture == 'mtrssm':
             n_class = (
                 self.args.stoch_n_class
@@ -221,13 +240,15 @@ class RNNActiviter():
             recurrent_activity = latent_activity
             description = 'recurrent hidden state'
 
-        if architecture == 'rssm' and cell_source == 'combined':
+        if architecture in {'rssm', 'ctrssm', 'oderssm'} and cell_source == 'combined':
             n_class = (
                 self.args.stoch_n_class
                 if self.args.stoch_dist == 'categorical'
                 else 1
             )
             expected_dim = self.args.latent_dim + self.args.stoch_dim * n_class
+        elif architecture == 'lstm' and cell_source == 'combined':
+            expected_dim = 2 * self.args.latent_dim
         elif architecture == 'mtrssm':
             expected_dim = self.args.latent_dim + self.args.higher_latent_dim
         elif architecture == 'crssmv4':

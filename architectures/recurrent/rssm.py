@@ -10,7 +10,7 @@ from networks.distributions import Representation, Transition
 import networks.rnn as rnn
 
 class RSSMPredictor(nn.Module):
-    def __init__(self, obs_dim, action_dim, cfg: RSSMConfig):
+    def __init__(self, obs_dim, action_dim, cfg: RSSMConfig, gridcells_dim=None):
         """"
          入力:
 
@@ -24,6 +24,10 @@ class RSSMPredictor(nn.Module):
 
         # 潜在状態を更新するRSSM
         self.rssm = RSSM(obs_dim=obs_dim, input_dim=action_dim, cfg=cfg)
+        self.gc2hidden = (
+            nn.Linear(gridcells_dim, self.rssm.determ_dim)
+            if gridcells_dim is not None else None
+        )
 
         # [h,z]から観測を再構成
         self.decoder=nn.Linear(
@@ -32,15 +36,16 @@ class RSSMPredictor(nn.Module):
             bias=False
         )
 
-    def forward(self,action:torch.Tensor,observation:torch.Tensor,state:torch.Tensor |None=None,initial_obs:torch.Tensor|None=None):
+    def forward(self,action:torch.Tensor,observation:torch.Tensor,state:torch.Tensor |None=None,initial_obs:torch.Tensor|None=None,gridcells:torch.Tensor|None=None):
         return self.observe(
             action,
             observation=observation,
             state=state,
             initial_obs=initial_obs,
+            gridcells=gridcells,
         )
 
-    def observe(self,action:torch.Tensor,observation:torch.Tensor,state:torch.Tensor|None=None,initial_obs:torch.Tensor|None=None):
+    def observe(self,action:torch.Tensor,observation:torch.Tensor,state:torch.Tensor|None=None,initial_obs:torch.Tensor|None=None,gridcells:torch.Tensor|None=None):
         """
         引数:
             action[B,T,action_dim]: 時刻tからt+1への遷移。
@@ -63,11 +68,23 @@ class RSSMPredictor(nn.Module):
                 raise ValueError("initial_obs must be provided if state is None")
 
             initial_embed=self.encoder(initial_obs)
-
-            current_latent = self.rssm.init_latent(
-                batch_size=batch_size,
-                obs=initial_embed,
-            )
+            if self.gc2hidden is None:
+                current_latent = self.rssm.init_latent(
+                    batch_size=batch_size,
+                    obs=initial_embed,
+                )
+            else:
+                if gridcells is None:
+                    raise ValueError(
+                        "gridcells must be provided when grid-cell input is enabled"
+                    )
+                self.rssm.hidden_state = self.gc2hidden(gridcells[:, 0])
+                self.rssm.prev_stoch = self.rssm.posterior(
+                    self.rssm.hidden_state, initial_embed
+                ).stoch.reshape(batch_size, -1)
+                current_latent = torch.cat(
+                    [self.rssm.hidden_state, self.rssm.prev_stoch], dim=-1
+                )
         else:
             if state.shape !=(
                 batch_size,

@@ -41,6 +41,9 @@ def calculate_embedding(
     directory: Path,
     label: str,
     activity_filename: str = "latent_activity.npy",
+    slice_start: int | None = None,
+    slice_stop: int | None = None,
+    feature_ranges: Sequence[tuple[int, int]] | None = None,
     max_samples: int = 7_500,
     max_neighbors: int = 100,
     seed: int = 0,
@@ -60,6 +63,28 @@ def calculate_embedding(
         raise ValueError(
             f"Positions must have x and y in the final dimension: {positions_path}"
         )
+
+    feature_count = activity.shape[-1]
+    start = 0 if slice_start is None else slice_start
+    stop = feature_count if slice_stop is None else slice_stop
+    if not 0 <= start < stop <= feature_count:
+        raise ValueError(
+            f"Invalid activity slice [{start}:{stop}] for {feature_count} features: "
+            f"{activity_path}"
+        )
+    if feature_ranges is not None:
+        for range_start, range_stop in feature_ranges:
+            if not 0 <= range_start < range_stop <= feature_count:
+                raise ValueError(
+                    f"Invalid feature range [{range_start}:{range_stop}] for "
+                    f"{feature_count} features: {activity_path}"
+                )
+        activity = activity[..., np.concatenate([
+            np.arange(range_start, range_stop)
+            for range_start, range_stop in feature_ranges
+        ])]
+    else:
+        activity = activity[..., start:stop]
 
     activity = activity.reshape(-1, activity.shape[-1])
     positions = positions.reshape(-1, positions.shape[-1])
@@ -207,6 +232,23 @@ def parse_args() -> argparse.Namespace:
         help="Activity array to embed (default: latent_activity.npy).",
     )
     parser.add_argument(
+        "--slice-start",
+        type=int,
+        help="First activity feature to include (inclusive; default: 0).",
+    )
+    parser.add_argument(
+        "--slice-stop",
+        type=int,
+        help="Last activity feature to include (exclusive; default: all).",
+    )
+    parser.add_argument(
+        "--features",
+        help=(
+            "Comma-separated start:stop feature ranges to concatenate, e.g. "
+            "0:128,192:224 (alternative to --slice-start/--slice-stop)."
+        ),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("paper_figures/development_isomap.pdf"),
@@ -230,6 +272,28 @@ def parse_args() -> argparse.Namespace:
         parser.error("--samples must be at least 3")
     if args.neighbors < 1:
         parser.error("--neighbors must be positive")
+    if args.slice_start is not None and args.slice_start < 0:
+        parser.error("--slice-start must be non-negative")
+    if args.slice_stop is not None and args.slice_stop < 1:
+        parser.error("--slice-stop must be positive")
+    if (
+        args.slice_start is not None
+        and args.slice_stop is not None
+        and args.slice_start >= args.slice_stop
+    ):
+        parser.error("--slice-start must be smaller than --slice-stop")
+    if args.features is not None:
+        if args.slice_start is not None or args.slice_stop is not None:
+            parser.error("--features cannot be combined with --slice-start/--slice-stop")
+        try:
+            args.features = [
+                tuple(int(bound) for bound in part.split(":"))
+                for part in args.features.split(",")
+            ]
+        except ValueError:
+            parser.error("--features must look like 0:128,192:224")
+        if any(len(bounds) != 2 for bounds in args.features):
+            parser.error("--features must look like 0:128,192:224")
     if args.point_size <= 0:
         parser.error("--point-size must be positive")
     if args.dpi < 1:
@@ -246,6 +310,9 @@ def main() -> None:
             directory=directory,
             label=label,
             activity_filename=args.activity_file,
+            slice_start=args.slice_start,
+            slice_stop=args.slice_stop,
+            feature_ranges=args.features,
             max_samples=args.samples,
             max_neighbors=args.neighbors,
             seed=args.seed,
