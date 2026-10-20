@@ -33,6 +33,27 @@ print()
 pos = np.load(os.path.join(EXPERIMENT_DIR, 'riab_simulation/positions.npy'))
 thetas = np.load(os.path.join(EXPERIMENT_DIR, 'riab_simulation/thetas.npy'))
 
+def srgb_hex_to_linear(hex_color):
+    """'#rrggbb' (sRGB) -> linear RGBA, as Blender expects for Base Color."""
+    rgb = [int(hex_color.lstrip('#')[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    return [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb] + [1.0]
+
+for i, obstacle in enumerate(config.get('OBSTACLES') or []):
+    cx, cy = obstacle['CENTER']
+    size, height = obstacle['SIZE'], obstacle['HEIGHT']
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(cx, cy, height / 2))
+    pillar = bpy.context.active_object
+    pillar.name = f"obstacle{i}"
+    pillar.scale = (size, size, height)
+
+    material = bpy.data.materials.new(name=f"obstacle{i}")
+    material.use_nodes = True
+    bsdf = material.node_tree.nodes["Principled BSDF"]
+    bsdf.inputs["Base Color"].default_value = srgb_hex_to_linear(obstacle['COLOR'])
+    bsdf.inputs["Roughness"].default_value = 0.8
+    pillar.data.materials.append(material)
+    print(f"Added {pillar.name}: centre {obstacle['CENTER']}, size {size}, height {height}")
+
 camera_center =  bpy.data.objects['Camera_center']
 
 frame_count = 1

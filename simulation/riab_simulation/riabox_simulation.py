@@ -14,6 +14,20 @@ from ratinabox.Environment import Environment
 
 from simulation.riab_simulation.utils import run_simulation
 
+def obstacle_holes(obstacles, env_eps):
+    """Square obstacles in box coordinates -> RatInABox hole corners.
+
+    The Environment spans [0, ENV_DIM - 2*ENV_EPS] and saved positions are
+    shifted by +ENV_EPS, so the corners are shifted by -ENV_EPS here.
+    """
+    holes = []
+    for obstacle in obstacles:
+        cx, cy = np.asarray(obstacle['CENTER'], dtype=float) - env_eps
+        half = obstacle['SIZE'] / 2
+        holes.append([[cx - half, cy - half], [cx + half, cy - half],
+                      [cx + half, cy + half], [cx - half, cy + half]])
+    return holes
+
 def main(args):
     SEEDS = args.seeds
     BEHAVIOUR = args.behaviour
@@ -26,7 +40,7 @@ def main(args):
     if not SAVE_EXPERIMENT:
         print("\n[!!!] WARNING: not saving the experiment, use --save_experiment flag\n")
 
-    with open(REPO_ROOT / "simulation/config.yaml") as f:
+    with open(args.config) as f:
         config = yaml.safe_load(f)
 
     behaviour_groups = config['BEHAVIOURS']
@@ -63,7 +77,10 @@ def main(args):
     print(EXP_FOLDERS)
 
     if ENVIRONMENT == 'box':
-        env = Environment(params={'scale':config['ENV_DIM']-2*config['ENV_EPS'], 'aspect':1})
+        env_params = {'scale':config['ENV_DIM']-2*config['ENV_EPS'], 'aspect':1}
+        if config.get('OBSTACLES'):
+            env_params['holes'] = obstacle_holes(config['OBSTACLES'], config['ENV_EPS'])
+        env = Environment(params=env_params)
 
     agent, positions, velocities, rot_velocities, thetas, place_cells, hd_cells, whiskers =\
         [], [], [], [], [], [], [], []
@@ -94,7 +111,7 @@ def main(args):
 
         # Copy the config file to each experiment folder
         if SAVE_EXPERIMENT:
-            shutil.copy(REPO_ROOT / "simulation/config.yaml", os.path.join(os.path.dirname(exp_folder), "config.yaml"))
+            shutil.copy(args.config, os.path.join(os.path.dirname(exp_folder), "config.yaml"))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -108,6 +125,9 @@ if __name__ == "__main__":
         '--data_root', type=Path, default=REPO_ROOT / "data",
         help='Directory where <environment>/<behaviour>/exp_* folders are written.')
     parser.add_argument('--seeds', type=int, nargs='+', default=list(range(1, 26 +1)))
+    parser.add_argument(
+        '--config', type=Path, default=REPO_ROOT / "simulation/config.yaml",
+        help='Simulation config; an optional OBSTACLES list adds square pillars to the box.')
     parser.add_argument('--overwrite', action='store_true',
                         help='Allow overwriting existing simulations.')
 
