@@ -14,18 +14,22 @@ from ratinabox.Environment import Environment
 
 from simulation.riab_simulation.utils import run_simulation
 
-def obstacle_holes(obstacles, env_eps):
-    """Square obstacles in box coordinates -> RatInABox hole corners.
+def obstacle_holes(obstacles, env_eps, env_dim):
+    """Rectangular obstacles in box coordinates -> RatInABox hole corners.
 
-    The Environment spans [0, ENV_DIM - 2*ENV_EPS] and saved positions are
-    shifted by +ENV_EPS, so the corners are shifted by -ENV_EPS here.
+    SIZE is an edge length (square) or [width, depth]. The Environment spans
+    [0, ENV_DIM - 2*ENV_EPS] and saved positions are shifted by +ENV_EPS, so
+    the corners are shifted by -ENV_EPS and clipped to the Environment (for
+    obstacles that touch the walls).
     """
+    upper = env_dim - 2 * env_eps
     holes = []
     for obstacle in obstacles:
         cx, cy = np.asarray(obstacle['CENTER'], dtype=float) - env_eps
-        half = obstacle['SIZE'] / 2
-        holes.append([[cx - half, cy - half], [cx + half, cy - half],
-                      [cx + half, cy + half], [cx - half, cy + half]])
+        hx, hy = np.broadcast_to(np.asarray(obstacle['SIZE'], dtype=float), 2) / 2
+        x0, x1 = np.clip([cx - hx, cx + hx], 0, upper)
+        y0, y1 = np.clip([cy - hy, cy + hy], 0, upper)
+        holes.append([[x0, y0], [x1, y0], [x1, y1], [x0, y1]])
     return holes
 
 def main(args):
@@ -79,7 +83,8 @@ def main(args):
     if ENVIRONMENT == 'box':
         env_params = {'scale':config['ENV_DIM']-2*config['ENV_EPS'], 'aspect':1}
         if config.get('OBSTACLES'):
-            env_params['holes'] = obstacle_holes(config['OBSTACLES'], config['ENV_EPS'])
+            env_params['holes'] = obstacle_holes(
+                config['OBSTACLES'], config['ENV_EPS'], config['ENV_DIM'])
         env = Environment(params=env_params)
 
     agent, positions, velocities, rot_velocities, thetas, place_cells, hd_cells, whiskers =\

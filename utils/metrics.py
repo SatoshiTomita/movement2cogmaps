@@ -5,7 +5,11 @@ from pycircstat import rayleigh
 from scipy.stats import pearsonr
 from scipy.spatial.distance import jensenshannon
 
-def spatial_info(rate: np.ndarray, occ: np.ndarray, method="bit_sec_hertz") -> float:
+def spatial_info(
+    rate: np.ndarray, occ: np.ndarray, method="bit_sec_hertz", exclude_nan_rate=False
+) -> float:
+    # exclude_nan_rate also drops bins whose rate is NaN (never visited, e.g.
+    # obstacles); smoothing leaks occupancy into them, so occ alone misses them.
     # ref Skaggs, Markus 1996
     # Climer paper
     # Sousa paper
@@ -17,6 +21,8 @@ def spatial_info(rate: np.ndarray, occ: np.ndarray, method="bit_sec_hertz") -> f
     if method not in ["bit_sec", "bit_sec_hertz"]:
         raise ValueError(f"method {method} not recognized")
     no_occ = np.logical_or(occ == 0, np.isnan(occ))
+    if exclude_nan_rate:
+        no_occ = np.logical_or(no_occ, np.isnan(rate))
     _rate = rate[~no_occ]
     _occ = occ[~no_occ]
     # turn occ in a probability

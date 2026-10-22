@@ -42,7 +42,7 @@ def activity_part(trainer, exp_dir, dataloader_act, bptt_trainer):
     # 学習時の設定とモデル名を引き継いだ解析用オブジェクトを作る。
     # 以降の数値計算とファイル保存は主に RNNActiviter が担当する。
     model_name = trainer.get_model_name()
-    activiter = RNNActiviter(trainer.get_args(), DATA_DIR, DEVICE, model_name, exp_dir)
+    activiter = RNNActiviter(trainer.get_args(), args.data_root, DEVICE, model_name, exp_dir)
 
     # --epoch_act で指定されたエポック（未指定なら最新）の学習済みモデルを
     # 読み込み、解析結果を保存する act_<behaviour>_epoch<epoch> ディレクトリを作る。
@@ -169,7 +169,7 @@ def main(args):
             '''
         )
 
-    trainer = RNNTrainer(args, DATA_DIR, DEVICE)
+    trainer = RNNTrainer(args, args.data_root, DEVICE)
     # 動画、角度、位置、速度、回転速度のシミュレーションデータを読み込む
     videos, thetas, positions, velocities, rot_velocities =\
         trainer.load_simulations()
@@ -341,6 +341,15 @@ if __name__ == '__main__':
         help="Positive integer to add more data to the training set, the number act as a "+\
         "counter for the seeds to be used. Default is None, i.e. no more data is added.")
     argparser.add_argument(
+        '--data_root', type=str, default=DATA_DIR,
+        help="Directory containing <env shape>/<behaviour>/exp_* simulations; "
+        "training and activity outputs are written under it. Relative paths "
+        "are resolved against the repository. Default is <repo>/data.")
+    argparser.add_argument(
+        '--seed_offset', type=int, default=0,
+        help="Added to every train/test/activity simulation seed. With 26, "
+        "seeds 27-43 train, 44-47 test and 44-52 activity. Default is 0.")
+    argparser.add_argument(
         '--n_gridcells', type=int, default=0,
         help="The number of grid cells to be used as input to the model. "+\
         "Default is zero, i.e. no grid cells input is given.")
@@ -485,6 +494,11 @@ if __name__ == '__main__':
         '--ratemap_norm', type=str, default='minmax',
         help="How to normalize rate maps (minmax or sum). Default to minmax.")
     argparser.add_argument(
+        '--ratemap_exclude_unvisited', action='store_true',
+        help="Exclude never-visited position bins (e.g. obstacles) from the "
+        "spatial information, aligning the occupancy map with the rate maps. "
+        "Results go to an act_* directory suffixed with '_exclunvisited'.")
+    argparser.add_argument(
         '--activity_transform', type=str, default='identity',
         choices=['identity', 'softplus', 'minmax', 'halfshift'],
         help="Transform applied to latent activity before all spatial analyses. "
@@ -513,6 +527,7 @@ if __name__ == '__main__':
     
        
     args = argparser.parse_args()
+    args.data_root = os.path.join(BASE_DIR, args.data_root)
 
     if args.gridcells_modules is not None or args.gridcells_orientations is not None:
         if args.n_gridcells == 0:

@@ -28,12 +28,12 @@ def setup_axes(ax, config: dict) -> None:
     ax.set_yticks([])
     for obstacle in config.get("OBSTACLES") or []:
         cx, cy = obstacle["CENTER"]
-        size = obstacle["SIZE"]
+        width, depth = np.broadcast_to(obstacle["SIZE"], 2)
         ax.add_patch(
             Rectangle(
-                (cx - size / 2, cy - size / 2),
-                size,
-                size,
+                (cx - width / 2, cy - depth / 2),
+                width,
+                depth,
                 facecolor=obstacle.get("COLOR", "0.35"),
                 edgecolor="black",
                 linewidth=0.8,

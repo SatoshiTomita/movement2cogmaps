@@ -43,15 +43,18 @@ class RateMaps():
     PLACE_SI_TH = 0.3
 
     def __init__(
-        self, positions:np.array, env_dim:float
+        self, positions:np.array, env_dim:float, exclude_unvisited:bool=False
     ):
         """
         Args:
         positions (np.array): (samples, 2) Array of positions.
         env_dim (float): Dimension of the environment.
+        exclude_unvisited (bool): Align the occupancy map with the rate maps
+            and leave never-visited bins out of the spatial information.
         """
-        
+
         self.positions = positions
+        self.exclude_unvisited = exclude_unvisited
         self.sigma = self.SIGMA_SMOOTHING
         self.env_dim = env_dim
         self.bin_size = env_dim/self.N_SAMPLES_POS
@@ -76,6 +79,9 @@ class RateMaps():
             sigma = self.sigma
         )
         rate_maps = np.moveaxis(rate_maps, -1, 0)
+        if self.exclude_unvisited:
+            # get_smooth_rate_map transposes and flips only the rate maps.
+            occ_smoothed = np.flip(occ_smoothed.T, axis=0)
 
         return rate_maps, occ_smoothed
 
@@ -123,7 +129,10 @@ class RateMaps():
                 out=rate_maps
             )
 
-        si = [spatial_info(rm, occ) for rm in rate_maps_norm]
+        si = [
+            spatial_info(rm, occ, exclude_nan_rate=self.exclude_unvisited)
+            for rm in rate_maps_norm
+        ]
 
         return np.array(si)
 
@@ -338,26 +347,52 @@ class RateMaps():
 
 class RateMapsPlotter():
 
-    def __init__(self, exp_dir:str, save_figures:bool=True, wandb_log:bool=False):
+    def __init__(
+        self, exp_dir:str, save_figures:bool=True, wandb_log:bool=False,
+        obstacles:List[dict]=None, env_dim:float=None
+    ):
         """
         Args:
         exp_dir (str): Path to the experiment directory.
         save_figures (bool): Flag to indicate if the figures should be saved. Defaults to True.
+        obstacles (List[dict], optional): OBSTACLES entries of the simulation config
+            (CENTER, SIZE in meters); their outlines are drawn on the rate maps.
+        env_dim (float, optional): Dimension of the environment, needed with obstacles.
         """
-        
+
         self.exp_dir = exp_dir
         self.save_figures = save_figures
         self.wandb_log = wandb_log
+        self.obstacles = obstacles or []
+        self.env_dim = env_dim
+        # Never-visited bins (NaN) are drawn in gray instead of the background.
+        self.cmap = plt.get_cmap('jet').copy()
+        self.cmap.set_bad('0.75')
+
+    def draw_obstacles(self, ax, n_bins:int):
+        """Outline the obstacles on a rate map image (transposed and y-flipped)."""
+        if not self.obstacles:
+            return
+        bin_size = self.env_dim / n_bins
+        for obstacle in self.obstacles:
+            cx, cy = obstacle['CENTER']
+            width, depth = np.broadcast_to(obstacle['SIZE'], 2)
+            ax.add_patch(plt.Rectangle(
+                ((cx - width / 2) / bin_size - 0.5, n_bins - (cy + depth / 2) / bin_size - 0.5),
+                width / bin_size, depth / bin_size,
+                fill=False, edgecolor='black', linewidth=0.5
+            ))
 
     def average_rate_map(self, rate_maps:np.array):
         """
         Plot the average rate map.
-        
+
         Args:
         rate_maps (np.array): (n_units, n_samples_pos, n_samples_pos) Array of rate maps.
         """
         fig = plt.figure(figsize=(4,4))
-        plt.imshow(np.mean(rate_maps, axis=0), cmap='jet')
+        plt.imshow(np.mean(rate_maps, axis=0), cmap=self.cmap)
+        self.draw_obstacles(plt.gca(), rate_maps.shape[-1])
         plt.colorbar()
         plt.axis('off')
         plt.tight_layout()
@@ -471,9 +506,10 @@ class RateMapsPlotter():
             
             rm = rate_maps[idx, ...]
 
-            ax.imshow(rm, cmap='jet')
+            ax.imshow(rm, cmap=self.cmap)
+            self.draw_obstacles(ax, rm.shape[-1])
             ax.set_title(
-                f'{idx:03d}: [{rm.min():.2f},{rm.max():.2f}]\n'+\
+                f'{idx:03d}: [{np.nanmin(rm):.2f},{np.nanmax(rm):.2f}]\n'+\
                 f'SI {si[idx]:.2f}', fontsize=4.25
             )
 

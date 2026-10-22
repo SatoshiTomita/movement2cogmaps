@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import os
 import json
+import yaml
 import wandb
 
 from utils.spatial_units import (
@@ -44,6 +45,8 @@ class RNNActiviter():
         )
         if cell_source != 'deterministic':
             dir_name += f"_cells-{cell_source}"
+        if getattr(self.args, 'ratemap_exclude_unvisited', False):
+            dir_name += "_exclunvisited"
         self.exp_dir = os.path.join(self.exp_dir, dir_name)
         os.makedirs(self.exp_dir, exist_ok=True)
         print(f"\n[+] Created activity directory\n\t{self.exp_dir}")
@@ -325,7 +328,10 @@ class RNNActiviter():
         exp_dir_place = os.path.join(self.exp_dir, 'place')
         os.makedirs(exp_dir_place, exist_ok=True)
 
-        rm_helper = RateMaps(positions, self.args.env_dim)
+        rm_helper = RateMaps(
+            positions, self.args.env_dim,
+            exclude_unvisited=getattr(self.args, 'ratemap_exclude_unvisited', False),
+        )
         rate_maps, occ = rm_helper.calculate_rate_maps(latent_activity)
         np.save(os.path.join(exp_dir_place, 'rate_maps.npy'), rate_maps)
 
@@ -392,9 +398,25 @@ class RNNActiviter():
 
         return rate_maps, si_r, indices_place_cells, n_fields, rm_stability, single_field_dim, rm_vs_hd, rm_vs_hd_stability
     
+    def load_obstacles(self):
+        """Return the OBSTACLES of the first activity trajectory's config.yaml, if any."""
+        config_path = os.path.join(
+            self.data_dir, self.args.env_shape, self.args.behaviour_act,
+            f"exp_dim{self.args.env_dim}_fps{self.args.fps}_s{self.args.seconds}"
+            f"_seed{self.args.seeds_act[0]:02d}",
+            "config.yaml"
+        )
+        if not os.path.exists(config_path):
+            return None
+        with open(config_path) as f:
+            return yaml.safe_load(f).get('OBSTACLES')
+
     def save_place_plots(self, rate_maps, si_r, indices_place_cells, indices_hd_cells, indices_conjunctive_cells):
         """Rate map、SIr分布、セル分類を示すPlace関連の図を保存する。"""
-        rm_plotter = RateMapsPlotter(self.exp_dir, wandb_log=self.args.wandb)
+        rm_plotter = RateMapsPlotter(
+            self.exp_dir, wandb_log=self.args.wandb,
+            obstacles=self.load_obstacles(), env_dim=self.args.env_dim
+        )
         rm_plotter.average_rate_map(rate_maps)
         rm_plotter.metric_histogram(si_r, "Spatial Information (SIr)")
         rm_plotter.rate_maps(

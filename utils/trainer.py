@@ -154,6 +154,10 @@ class RNNTrainer():
             n_trials_train+1,
             n_trials_train+n_trials_test+n_trials_act+1
         ))
+        seed_offset = getattr(self.args, 'seed_offset', 0) or 0
+        self.args.seeds_train = [s + seed_offset for s in self.args.seeds_train]
+        self.args.seeds_test = [s + seed_offset for s in self.args.seeds_test]
+        self.args.seeds_act = [s + seed_offset for s in self.args.seeds_act]
         self.args.seeds_all = self.args.seeds_train + list(np.union1d(self.args.seeds_test, self.args.seeds_act))
 
         print(f'\tSeeds train: {self.args.seeds_train}\n\tSeeds test: {self.args.seeds_test}\n\tSeeds activity: {self.args.seeds_act}')
@@ -213,11 +217,11 @@ class RNNTrainer():
                 f"exp_dim{self.args.env_dim}_fps{self.args.fps}_s{self.args.seconds}_seed{s:02d}"
             ) for s in self.args.seeds_all
         ]
-        for idx, ld in enumerate(load_dirs):
+        for s, ld in zip(self.args.seeds_all, load_dirs):
             # activity_onlyがTrueの場合、seeds_trainに含まれるシードのデータはスキップする
             if (
                 self.args.activity_only and
-                idx+1 in self.args.seeds_train
+                s in self.args.seeds_train
             ):
                 videos.append([])
                 thetas.append([])

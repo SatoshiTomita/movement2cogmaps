@@ -40,11 +40,13 @@ def srgb_hex_to_linear(hex_color):
 
 for i, obstacle in enumerate(config.get('OBSTACLES') or []):
     cx, cy = obstacle['CENTER']
+    # SIZE is an edge length (square) or [width, depth].
     size, height = obstacle['SIZE'], obstacle['HEIGHT']
+    width, depth = size if isinstance(size, list) else (size, size)
     bpy.ops.mesh.primitive_cube_add(size=1, location=(cx, cy, height / 2))
     pillar = bpy.context.active_object
     pillar.name = f"obstacle{i}"
-    pillar.scale = (size, size, height)
+    pillar.scale = (width, depth, height)
 
     material = bpy.data.materials.new(name=f"obstacle{i}")
     material.use_nodes = True
